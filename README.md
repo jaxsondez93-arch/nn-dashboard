@@ -1,9 +1,13 @@
 # nn-dashboard
 
+*Made by [jaxsondez93](https://github.com/jaxsondez93-arch).*
+
 A small, offline, read-only training-statistics dashboard (Python standard library only) with paired-device login, so a phone app can read it over a private network.
 It reads training logs, checkpoints and systemd status from directories you configure, and never writes to them or controls any service.
 
 ![Dashboard v2.3](docs/images/dashboard_v2.3.png)
+
+**New here? Start with [In plain English](docs/PLAIN_ENGLISH.md)** (what this is, a guided tour, a glossary and a pop-culture decoder, no software background needed).
 
 **Documentation:** [version history with screenshots](docs/VERSION_HISTORY.md) · [what we learned](docs/LEARNINGS.md) · [results](docs/RESULTS.md)
 
