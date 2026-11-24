@@ -9,8 +9,16 @@ It reads training logs, checkpoints and systemd status from directories you conf
 
 **New here? Start with [In plain English](docs/PLAIN_ENGLISH.md)** (what this is, a guided tour, a glossary and a pop-culture decoder, no software background needed).
 
-**Documentation:** [version history with screenshots](docs/VERSION_HISTORY.md) · [what we learned](docs/LEARNINGS.md) · [results](docs/RESULTS.md)
+**Documentation:** [version history with screenshots](docs/VERSION_HISTORY.md) · [what we learned](docs/LEARNINGS.md) · [results](docs/RESULTS.md) · [how it works](docs/ARCHITECTURE.md) · [how to read the charts](docs/HOW_TO_READ_THE_CHARTS.md) · [the story so far](docs/STORY.md) · [security notes](SECURITY.md) · [contributing](CONTRIBUTING.md)
 
+
+## Try it in 30 seconds (no data needed)
+
+    python3 demo/make_demo_data.py demo_run
+    NN_DATA=demo_run NN_WORK=demo_run NN_DASH_NOAUTH=1 python3 server.py
+    # open http://127.0.0.1:8765
+
+The demo writes five days of invented training data (a loss that decays, a laptop that heats up and slows down, two machine stops) so every chart has something to show.
 
 ## Run
 

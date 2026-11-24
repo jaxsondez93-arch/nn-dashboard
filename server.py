@@ -86,7 +86,8 @@ def unit(name):
 
 def rd(p):
     try:
-        return open(p).read().strip()
+        with open(p) as _f:
+            return _f.read().strip()
     except OSError:
         return None
 
