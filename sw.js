@@ -1,5 +1,5 @@
 /* Service worker: makes the site work offline. Cache-first for this site's own files; the build fills in the version and the list of files. */
-const CACHE = "nn-dashboard-20261123211313";
+const CACHE = "nn-dashboard-20261123211950";
 const CORE = ["./", "./index.html", "./site.css", "./icon-192.png", "./demo/", "./demo/index.html", "./demo/static/dashboard.css", "./demo/static/dashboard.js", "./playground/", "./playground/index.html", "./playground/playground.js", "./demo/data/live.json", "./demo/data/1h.json", "./demo/data/6h.json", "./demo/data/24h.json", "./demo/data/7d.json", "./demo/data/all.json", "./demo/data/run.json", "./docs/PLAIN_ENGLISH.html", "./docs/README.html"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });

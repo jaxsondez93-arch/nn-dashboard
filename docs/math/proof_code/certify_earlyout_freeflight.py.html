@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>certify_earlyout_freeflight.py · nn-dashboard</title><link rel="stylesheet" href="../../../site.css"><link rel="manifest" href="../../../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<body><header class="top"><a class="brand" href="../../../index.html">nn-dashboard</a><nav><a href="../../../demo/">Live demo</a><a href="../../../playground/">Playground</a><a href="../../../docs/PLAIN_ENGLISH.html">In plain English</a><a href="../../../docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
+<main><article>
+<h1>certify_earlyout_freeflight.py</h1><p><a href="README.html">&larr; about these files</a></p><pre><code># Reference copy for reading (see README.md in this folder). It cannot run on its own: it imports helper modules (reconstruct_toi, compute_angle_windows, test_la_lb_sim)
+# that are not part of this repository. Set BALLZ_PROOF_MODULES to a folder containing them, and BALLZ_PROOF_OUT for where result files are written.
+&quot;&quot;&quot;Source-exact no-contact certificate for free flight, based on the CollidePolygons early-out.
+
+Why a new certificate (31 Oct 2026)
+-----------------------------------
+`corridor_level_a_proof.py` used tol_toi = 0.00125 m (0.25*linearSlop, from later C++ Box2D) and the
+threshold 0.0075 + 0.00125 = 0.00875 m. In this runtime TimeOfImpact receives
+`tolerance = b2_linearSlop = 0.005` (c2runtime.js L31466), so the outer-loop acceptance
+(L28427) is separation &lt; target + 0.5*tolerance = 0.0100 m. 0.00875 m has no basis in the source.
+
+Sufficient condition used here (c2runtime.js L26948 ff., L27049 ff.)
+---------------------------------------------------------------------
+A Box2D polygon contact is &quot;touching&quot; (and hence fires BeginContact / Construct &#x27;On collision&#x27;, and is
+accepted by SolveTOI) only if CollidePolygons produces pointCount &gt;= 1. CollidePolygons returns early
+with pointCount = 0 when FindMaxSeparation(polyA, polyB) &gt; totalRadius (0.0100 m) OR
+FindMaxSeparation(polyB, polyA) &gt; totalRadius. FindMaxSeparation is a *hill climb*: it starts at the
+edge whose normal has the largest dot product with the centroid offset and only moves to strictly
+better edges, so its return value is &gt;= EdgeSeparation(start edge). Therefore:
+
+  if, for one of the two polygon orders, EVERY possible start edge e has EdgeSeparation(e) &gt; 0.0100 m,
+  then CollidePolygons returns no points, whichever fixture the engine treats as A.
+
+This avoids assuming that the hill climb returns the global SAT maximum. We certify this for every
+step k, every alpha in [0, 1] (all configurations the discrete and TOI pathways can evaluate), every
+target polygon in range, and every theta in each certified sub-interval, in outward-rounded IEEE-754
+interval arithmetic. EdgeSeparation for a fixed edge is a minimum of functions affine in alpha, hence
+concave in alpha, so its minimum over an alpha-interval is attained at an endpoint.
+
+Free-flight model: identical to certify_interval_arithmetic.py (validated: Proposition 3 window
+endpoints agree with the float engine port to 2e-7 deg). A position pad of 1e-9 m and a rotation pad
+of 1e-12 cover accumulated binary64 rounding in the engine (&lt;~1e-12 m over 150 steps).
+&quot;&quot;&quot;
+import json
+import os
+import math
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.environ.get(&quot;BALLZ_PROOF_MODULES&quot;, &quot;.&quot;))
+
+import certify_interval_arithmetic as cia
+from compute_angle_windows import BLOCKS_SEED3000, proxyA, proxyB, proxyWall
+from reconstruct_toi import PolygonProxy
+
+IV = cia.IV
+down, up = cia.down, cia.up
+R_TOTAL = 0.0100
+POS_PAD = 1e-9
+ROT_PAD = 1e-12
+BALL_R = 0.4851 + 0.005  # max vertex radius + skin (upper bound)
+
+
+def ex(v):
+    return IV.exact(v)
+
+
+class Target:
+    def __init__(self, name, proxy, bx, by, is_block):
+        self.name = name
+        self.is_block = is_block
+        self.bx, self.by = ex(bx), ex(by)
+        self.v = [(ex(x), ex(y)) for x, y in proxy.m_vertices]
+        self.n = [(ex(x), ex(y)) for x, y in proxy.m_normals]
+        self.c = (ex(proxy.m_centroid[0]), ex(proxy.m_centroid[1]))
+        self.rad = max(math.hypot(x, y) for x, y in proxy.m_vertices) + 0.005
+        self.vw = [(self.bx + x, self.by + y) for x, y in self.v]  # world vertices (angle 0)
+        self.cw = (self.bx + self.c[0], self.by + self.c[1])
+        self.xmin = min(bx + x for x, y in proxy.m_vertices)
+        self.xmax = max(bx + x for x, y in proxy.m_vertices)
+        self.ymin = min(by + y for x, y in proxy.m_vertices)
+        self.ymax = max(by + y for x, y in proxy.m_vertices)
+
+
+VA = [(ex(x), ex(y)) for x, y in proxyA.m_vertices]
+NA = [(ex(x), ex(y)) for x, y in proxyA.m_normals]
+CA = (ex(proxyA.m_centroid[0]), ex(proxyA.m_centroid[1]))
+VA_DOT_NA = [VA[i][0] * NA[i][0] + VA[i][1] * NA[i][1] for i in range(8)]
+
+# Top wall t15#21 exactly as in test_la_lb_sim.py
+_ang21 = 1.570796370506287
+_c21, _s21 = math.cos(_ang21), math.sin(_ang21)
+_raw21 = [(-0.32, -7.2), (0.32, -7.2), (0.32, 7.2), (-0.32, 7.2)]
+proxyTop = PolygonProxy([(_c21 * x - _s21 * y, _s21 * x + _c21 * y) for x, y in _raw21])
+
+WALLS = [
+    Target(&quot;t15#19 (Left Wall)&quot;, proxyWall, -0.32, 12.8, False),
+    Target(&quot;t15#20 (Right Wall)&quot;, proxyWall, 14.72, 12.8, False),
+    Target(&quot;t15#21 (Top Wall)&quot;, proxyTop, 7.199999986012362, 0.31999968527798844, False),
+]
+
+
+def widen(iv, pad):
+    return IV(down(iv.lo - pad), up(iv.hi + pad))
+
+
+def trig(th_deg):
+    th = th_deg * cia.DEG2RAD
+    return widen(IV.cos(th), ROT_PAD), widen(IV.sin(th), ROT_PAD)
+
+
+def pose(k, al, c, s):
+    &quot;&quot;&quot;Body-origin position at step k, fraction al (IV), launch trig c, s (IV).&quot;&quot;&quot;
+    t = IV(k - 1) + al
+    grav = IV(0.5 * (k - 1) * k) + al * IV(k)
+    x = IV(7.2) + t * cia.V0_DT_IV * c
+    y = IV(1.8) + t * cia.V0_DT_IV * s + grav * cia.G_DT2_IV
+    return widen(x, POS_PAD), widen(y, POS_PAD)
+
+
+def rot(k, c, s):
+    return (IV(1.0), IV(0.0)) if k == 1 else (c, s)
+
+
+def candidates(dots):
+    m = max(d.lo for d in dots)
+    return [i for i, d in enumerate(dots) if d.hi &gt;= m]
+
+
+def order1_lb(tgt, x, y, rc, rs):
+    &quot;&quot;&quot;Ball faces as reference (poly1 = ball). Returns per-edge EdgeSeparation lower bound list.&quot;&quot;&quot;
+    out = []
+    for i in range(8):
+        nwx = rc * NA[i][0] - rs * NA[i][1]
+        nwy = rs * NA[i][0] + rc * NA[i][1]
+        vals = [(vx - x) * nwx + (vy - y) * nwy for vx, vy in tgt.vw]
+        out.append(IV.min_list(vals).lo - VA_DOT_NA[i].hi)
+    return out
+
+
+def order2_lb(tgt, x, y, rc, rs):
+    &quot;&quot;&quot;Target faces as reference (poly1 = target, angle 0).&quot;&quot;&quot;
+    # min_m (R vA_m) . n  for each target normal n
+    out = []
+    for j in range(len(tgt.n)):
+        nx, ny = tgt.n[j]
+        # R^T n
+        lx = rc * nx + rs * ny
+        ly = -rs * nx + rc * ny
+        mn = IV.min_list([vx * lx + vy * ly for vx, vy in VA])
+        base = (x - tgt.vw[j][0]) * nx + (y - tgt.vw[j][1]) * ny
+        out.append((base + mn).lo)
+    return out
+
+
+def start_dots(tgt, x, y, rc, rs):
+    caw_x = x + rc * CA[0] - rs * CA[1]
+    caw_y = y + rs * CA[0] + rc * CA[1]
+    dx = tgt.cw[0] - caw_x
+    dy = tgt.cw[1] - caw_y
+    # order 1: d in ball-local frame
+    lx = rc * dx + rs * dy
+    ly = -rs * dx + rc * dy
+    d1 = [NA[i][0] * lx + NA[i][1] * ly for i in range(8)]
+    # order 2: -d in target frame (angle 0)
+    d2 = [tgt.n[j][0] * (-dx) + tgt.n[j][1] * (-dy) for j in range(len(tgt.n))]
+    return d1, d2
+
+
+def box_ok(tgt, k, a0, a1, c, s):
+    &quot;&quot;&quot;True if CollidePolygons is certified to early-out for all alpha in [a0, a1], theta in (c, s).&quot;&quot;&quot;
+    rc, rs = rot(k, c, s)
+    xa, ya = pose(k, IV(a0), c, s)
+    xb, yb = pose(k, IV(a1), c, s)
+    xi, yi = pose(k, IV(a0, a1), c, s)
+    d1, d2 = start_dots(tgt, xi, yi, rc, rs)
+    c1, c2 = candidates(d1), candidates(d2)
+    e1a, e1b = order1_lb(tgt, xa, ya, rc, rs), order1_lb(tgt, xb, yb, rc, rs)
+    lb1 = min(min(e1a[i], e1b[i]) for i in c1)
+    if lb1 &gt; R_TOTAL:
+        return True, lb1
+    e2a, e2b = order2_lb(tgt, xa, ya, rc, rs), order2_lb(tgt, xb, yb, rc, rs)
+    lb2 = min(min(e2a[j], e2b[j]) for j in c2)
+    return lb2 &gt; R_TOTAL, max(lb1, lb2)
+
+
+def far(tgt, k, c, s):
+    &quot;&quot;&quot;Cheap broadphase exclusion over the whole step.&quot;&quot;&quot;
+    xi, yi = pose(k, IV(0.0, 1.0), c, s)
+    m = BALL_R + 0.02
+    return xi.hi &lt; tgt.xmin - m or xi.lo &gt; tgt.xmax + m or yi.hi &lt; tgt.ymin - m or yi.lo &gt; tgt.ymax + m
+
+
+def step_ok(tgt, k, c, s, max_split=64):
+    if far(tgt, k, c, s):
+        return True, None
+    n = 1
+    worst = None
+    while n &lt;= max_split:
+        allok = True
+        worst = math.inf
+        for i in range(n):
+            ok, lb = box_ok(tgt, k, i / n, (i + 1) / n, c, s)
+            worst = min(worst, lb)
+            if not ok:
+                allok = False
+                break
+        if allok:
+            return True, worst
+        n *= 2
+    return False, worst
+
+
+def theta_interval_ok(lo, hi, targets, k_max_fn, stats):
+    th = IV(down(lo), up(hi))
+    c, s = trig(th)
+    kmax = k_max_fn(c, s)
+    if kmax is None:
+        return False
+    for k in range(1, kmax + 1):
+        for tgt in targets:
+            ok, lb = step_ok(tgt, k, c, s)
+            if not ok:
+                return False
+            if lb is not None:
+                key = tgt.name
+                stats[key] = min(stats.get(key, math.inf), lb)
+    return True
+
+
+def certify_range(lo, hi, targets, k_max_fn, min_width=1e-7, init_pieces=64):
+    &quot;&quot;&quot;Adaptive bisection. Returns (certified sub-intervals, uncertified leaves, stats).&quot;&quot;&quot;
+    stats = {}
+    good, bad = [], []
+    stack = [(lo + (hi - lo) * i / init_pieces, lo + (hi - lo) * (i + 1) / init_pieces) for i in range(init_pieces)][::-1]
+    while stack:
+        a, b = stack.pop()
+        if theta_interval_ok(a, b, targets, k_max_fn, stats):
+            if good and good[-1][1] == a:
+                good[-1] = (good[-1][0], b)
+            else:
+                good.append((a, b))
+        elif b - a &gt; min_width:
+            m = 0.5 * (a + b)
+            stack.append((m, b))
+            stack.append((a, m))
+        else:
+            bad.append((a, b))
+    return good, bad, stats
+
+
+def theta_interval_first_fail(lo, hi, targets, k_max_fn):
+    &quot;&quot;&quot;Return None if certified, else (k, target name) of the first failing (step, target).&quot;&quot;&quot;
+    th = IV(down(lo), up(hi))
+    c, s = trig(th)
+    kmax = k_max_fn(c, s)
+    if kmax is None:
+        return (None, &quot;kmax&quot;)
+    for k in range(1, kmax + 1):
+        for tgt in targets:
+            ok, _ = step_ok(tgt, k, c, s)
+            if not ok:
+                return (k, tgt.name)
+    return None
+
+
+def certify_range_classified(lo, hi, targets, k_max_fn, block_min_width=1e-5, wall_min_width=0.05, init_pieces=256):
+    &quot;&quot;&quot;Like certify_range, but stops bisecting leaves whose first failure is a wall (those angles reach a
+    wall before passing below the block, so free flight cannot certify them).&quot;&quot;&quot;
+    good, wall_leaves, block_leaves = [], [], []
+    stack = [(lo + (hi - lo) * i / init_pieces, lo + (hi - lo) * (i + 1) / init_pieces) for i in range(init_pieces)][::-1]
+    while stack:
+        a, b = stack.pop()
+        ff = theta_interval_first_fail(a, b, targets, k_max_fn)
+        if ff is None:
+            good.append((a, b))
+            continue
+        is_wall = &quot;Wall&quot; in ff[1]
+        if (is_wall and b - a &lt;= wall_min_width) or ((not is_wall) and b - a &lt;= block_min_width):
+            (wall_leaves if is_wall else block_leaves).append((a, b, ff[0], ff[1]))
+            continue
+        m = 0.5 * (a + b)
+        stack.append((m, b))
+        stack.append((a, m))
+    return merge(good), wall_leaves, block_leaves
+
+
+def kmax_below(y_stop):
+    &quot;&quot;&quot;Number of steps until the ball&#x27;s lowest possible top is below y_stop for all theta in the box.&quot;&quot;&quot;
+    def fn(c, s):
+        for k in range(1, 400):
+            _, y0 = pose(k, IV(0.0), c, s)
+            if y0.lo - BALL_R &gt; y_stop:
+                return k
+        return None
+    return fn
+
+
+def merge(iv_list):
+    out = []
+    for a, b in sorted(iv_list):
+        if out and b &lt;= out[-1][1] + 1e-15 or (out and a &lt;= out[-1][1]):
+            out[-1] = (out[-1][0], max(out[-1][1], b))
+        else:
+            out.append((a, b))
+    return out
+
+
+if __name__ == &quot;__main__&quot;:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument(&quot;--which&quot;, choices=[&quot;corridor&quot;, &quot;la4&quot;, &quot;la4v2&quot;, &quot;all&quot;], default=&quot;all&quot;)
+    args = ap.parse_args()
+    t0 = time.time()
+    result = {
+        &quot;method&quot;: __doc__,
+        &quot;source_refs&quot;: {&quot;toi_tolerance&quot;: &quot;c2runtime.js L31466 (tolerance = b2_linearSlop = 0.005)&quot;,
+                        &quot;toi_outer_acceptance&quot;: &quot;L28427 (separation - target &lt; 0.5*tolerance)&quot;,
+                        &quot;toi_inner_root&quot;: &quot;L28456 (|f - target| &lt; 0.025*tolerance)&quot;,
+                        &quot;find_max_separation_hill_climb&quot;: &quot;L26948&quot;,
+                        &quot;collide_polygons_early_out&quot;: &quot;L27049 ff.&quot;},
+        &quot;r_total_m&quot;: R_TOTAL,
+    }
+    if args.which in (&quot;corridor&quot;, &quot;all&quot;):
+        TH_LO, TH_HI = 85.29666640, 94.94268989  # unoccluded corridor endpoints (Prop. 4 item 6)
+        blocks = [Target(f&quot;t11#{b[&#x27;uid&#x27;]}&quot;, proxyB, b[&quot;bx&quot;], b[&quot;by&quot;], True) for b in BLOCKS_SEED3000]
+        targets = blocks + WALLS
+        y_stop = 28.5  # below every block (max bottom 21.77 m) and below the 25.6 m layout
+        rec = {}
+        for guard in [0.011, 0.0105, 0.010]:
+            lo, hi = TH_LO + guard, TH_HI - guard
+            good, bad, stats = certify_range(lo, hi, targets, kmax_below(y_stop), min_width=1e-6)
+            g = merge(good)
+            rec[f&quot;guard_{guard}&quot;] = {
+                &quot;interval_deg&quot;: [lo, hi], &quot;certified&quot;: g, &quot;uncertified_leaves&quot;: bad[:50],
+                &quot;n_uncertified_leaves&quot;: len(bad),
+                &quot;fully_certified&quot;: len(bad) == 0 and len(g) == 1 and g[0][0] == lo and g[0][1] == hi,
+                &quot;min_start_edge_separation_lb_by_target_m&quot;: stats,
+                &quot;elapsed_s&quot;: time.time() - t0,
+            }
+            print(f&quot;corridor guard={guard}: fully={rec[f&#x27;guard_{guard}&#x27;][&#x27;fully_certified&#x27;]} &quot;
+                  f&quot;bad={len(bad)} minsep={min(stats.values()) if stats else None} t={time.time()-t0:.0f}s&quot;, flush=True)
+            if len(bad) &gt; 0:
+                break
+        result[&quot;corridor&quot;] = {&quot;theta_lo_deg&quot;: TH_LO, &quot;theta_hi_deg&quot;: TH_HI, &quot;y_stop_m&quot;: y_stop, &quot;runs&quot;: rec}
+
+    if args.which == &quot;la4v2&quot;:
+        from test_la_lb_sim import make_block
+        b1 = make_block(1, 360, 220, 4)
+        T1 = Target(&quot;b1(360,220)&quot;, proxyB, b1[&quot;bx&quot;], b1[&quot;by&quot;], True)
+        y_stop = T1.ymax + 0.02   # ball&#x27;s top below b1&#x27;s bottom vertex + margin
+        segs = {}
+        for a, b in [(0.0001, 51.5120), (137.2790, 179.9999)]:
+            good, wl, bl = certify_range_classified(a, b, [T1] + WALLS, kmax_below(y_stop))
+            segs[f&quot;{a}-{b}&quot;] = {
+                &quot;certified_no_contact_until_below_b1&quot;: good,
+                &quot;certified_width_deg&quot;: sum(q - p for p, q in good),
+                &quot;wall_reached_first_leaves_merged&quot;: merge([(p, q) for p, q, _, _ in wl]),
+                &quot;wall_reached_first_width_deg&quot;: sum(q - p for p, q, _, _ in wl),
+                &quot;b1_grazing_uncertified_leaves_merged&quot;: merge([(p, q) for p, q, _, _ in bl]),
+                &quot;b1_grazing_uncertified_width_deg&quot;: sum(q - p for p, q, _, _ in bl),
+            }
+            print(f&quot;la4v2 [{a},{b}]: certified {segs[f&#x27;{a}-{b}&#x27;][&#x27;certified_width_deg&#x27;]:.4f} deg, wall-first &quot;
+                  f&quot;{segs[f&#x27;{a}-{b}&#x27;][&#x27;wall_reached_first_width_deg&#x27;]:.4f} deg, b1-grazing uncertified &quot;
+                  f&quot;{segs[f&#x27;{a}-{b}&#x27;][&#x27;b1_grazing_uncertified_width_deg&#x27;]:.6f} deg, t={time.time()-t0:.0f}s&quot;, flush=True)
+        result[&quot;la4&quot;] = {&quot;b1_body&quot;: [b1[&quot;bx&quot;], b1[&quot;by&quot;]], &quot;y_stop_m&quot;: y_stop, &quot;segments&quot;: segs,
+                         &quot;meaning&quot;: &quot;certified: no contact with b1 or any wall until the ball is entirely below b1. &quot;
+                                    &quot;wall-first: the ball can reach a side wall before passing below b1; free flight &quot;
+                                    &quot;cannot certify these angles (post-wall dynamics not analysed).&quot;}
+        args.which = &quot;la4&quot;
+    elif args.which in (&quot;la4&quot;, &quot;all&quot;):
+        from test_la_lb_sim import make_block
+        b1 = make_block(1, 360, 220, 4)
+        T1 = Target(&quot;b1(360,220)&quot;, proxyB, b1[&quot;bx&quot;], b1[&quot;by&quot;], True)
+        # (i) strict: no contact with b1 OR any wall until the ball is below y = 28.5 m
+        # (ii) b1-only: no contact with b1 and no wall contact while the ball can still reach b1
+        #      (until its top is below b1&#x27;s bottom skin); later wall contacts are not analysed.
+        out = {}
+        for label, targets, y_stop in [(&quot;strict_all_walls_to_28p5m&quot;, [T1] + WALLS, 28.5),
+                                        (&quot;b1_and_walls_until_below_b1&quot;, [T1] + WALLS, T1.ymax + 0.02)]:
+            segs = {}
+            for a, b in [(0.0001, 51.5120), (137.2790, 179.9999)]:
+                good, bad, stats = certify_range(a, b, targets, kmax_below(y_stop), min_width=1e-4, init_pieces=256)
+                segs[f&quot;{a}-{b}&quot;] = {&quot;certified&quot;: merge(good), &quot;n_uncertified_leaves&quot;: len(bad),
+                                     &quot;uncertified_leaves_merged&quot;: merge(bad),
+                                     &quot;certified_width_deg&quot;: sum(q - p for p, q in merge(good)),
+                                     &quot;min_start_edge_separation_lb_by_target_m&quot;: stats}
+                print(f&quot;la4 {label} [{a},{b}]: certified width {segs[f&#x27;{a}-{b}&#x27;][&#x27;certified_width_deg&#x27;]:.4f} deg, &quot;
+                      f&quot;uncertified leaves {len(bad)} t={time.time()-t0:.0f}s&quot;, flush=True)
+            out[label] = {&quot;y_stop_m&quot;: y_stop, &quot;segments&quot;: segs}
+        result[&quot;la4&quot;] = {&quot;b1_body&quot;: [b1[&quot;bx&quot;], b1[&quot;by&quot;]], &quot;runs&quot;: out}
+    result[&quot;elapsed_s&quot;] = time.time() - t0
+    path = os.path.join(os.environ.get(&quot;BALLZ_PROOF_OUT&quot;, &quot;.&quot;), f&quot;earlyout_freeflight_certification_{args.which}.json&quot;)
+    with open(path, &quot;w&quot;) as f:
+        json.dump(result, f, indent=2)
+    print(&quot;wrote&quot;, path)
+</code></pre>
+</article></main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../../../index.html">home</a> · <a href="../../../playground/">playground</a></footer>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../../../sw.js").catch(function(){});</script></body></html>

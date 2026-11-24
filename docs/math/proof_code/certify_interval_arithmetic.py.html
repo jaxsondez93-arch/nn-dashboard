@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>certify_interval_arithmetic.py · nn-dashboard</title><link rel="stylesheet" href="../../../site.css"><link rel="manifest" href="../../../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<body><header class="top"><a class="brand" href="../../../index.html">nn-dashboard</a><nav><a href="../../../demo/">Live demo</a><a href="../../../playground/">Playground</a><a href="../../../docs/PLAIN_ENGLISH.html">In plain English</a><a href="../../../docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
+<main><article>
+<h1>certify_interval_arithmetic.py</h1><p><a href="README.html">&larr; about these files</a></p><pre><code># Reference copy for reading (see README.md in this folder). It cannot run on its own: it imports helper modules (reconstruct_toi, compute_angle_windows, test_la_lb_sim)
+# that are not part of this repository. Set BALLZ_PROOF_MODULES to a folder containing them, and BALLZ_PROOF_OUT for where result files are written.
+import json
+import os
+import math
+import sys
+
+sys.path.insert(0, os.environ.get(&quot;BALLZ_PROOF_MODULES&quot;, &quot;.&quot;))
+from reconstruct_toi import PolygonProxy, build_c2_poly, t9_raw, t11_raw, t11_hx, t11_hy
+from compute_angle_windows import BLOCKS_SEED3000
+
+INF = math.inf
+
+def down(x: float, ulps: int = 1) -&gt; float:
+    for _ in range(ulps):
+        x = math.nextafter(x, -INF)
+    return x
+
+def up(x: float, ulps: int = 1) -&gt; float:
+    for _ in range(ulps):
+        x = math.nextafter(x, INF)
+    return x
+
+class IV:
+    &quot;&quot;&quot;Rigorous IEEE-754 outward-rounded interval [lo, hi].
+    Every elementary arithmetic operation (+, -, *, /, sqrt) in IEEE-754 binary64 has
+    rounding error &lt;= 0.5 ULP, so stepping outward by 1 ULP via math.nextafter(..., +-inf)
+    guarantees a strict outer enclosure of both the real-valued and IEEE-754 results.
+    Transcendental sin/cos step outward by 2 ULPs to bound libm accuracy across platforms.
+    &quot;&quot;&quot;
+    __slots__ = (&quot;lo&quot;, &quot;hi&quot;)
+
+    def __init__(self, lo: float, hi: float = None):
+        if hi is None:
+            hi = lo
+        assert lo &lt;= hi, f&quot;Invalid interval [{lo}, {hi}]&quot;
+        self.lo = float(lo)
+        self.hi = float(hi)
+
+    @classmethod
+    def exact(cls, val: float):
+        return cls(down(val, 1), up(val, 1))
+
+    def __add__(self, other):
+        if not isinstance(other, IV):
+            other = IV(other, other)
+        return IV(down(self.lo + other.lo), up(self.hi + other.hi))
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __sub__(self, other):
+        if not isinstance(other, IV):
+            other = IV(other, other)
+        return IV(down(self.lo - other.hi), up(self.hi - other.lo))
+
+    def __rsub__(self, other):
+        if not isinstance(other, IV):
+            other = IV(other, other)
+        return other.__sub__(self)
+
+    def __neg__(self):
+        return IV(-self.hi, -self.lo)
+
+    def __mul__(self, other):
+        if not isinstance(other, IV):
+            other = IV(other, other)
+        p1 = self.lo * other.lo
+        p2 = self.lo * other.hi
+        p3 = self.hi * other.lo
+        p4 = self.hi * other.hi
+        return IV(down(min(p1, p2, p3, p4)), up(max(p1, p2, p3, p4)))
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __truediv__(self, other):
+        if not isinstance(other, IV):
+            other = IV(other, other)
+        assert other.lo &gt; 0.0 or other.hi &lt; 0.0, f&quot;Division by interval containing 0: [{other.lo}, {other.hi}]&quot;
+        q1 = self.lo / other.lo
+        q2 = self.lo / other.hi
+        q3 = self.hi / other.lo
+        q4 = self.hi / other.hi
+        return IV(down(min(q1, q2, q3, q4)), up(max(q1, q2, q3, q4)))
+
+    @staticmethod
+    def cos(iv_rad):
+        assert iv_rad.lo &gt;= 0.0 and iv_rad.hi &lt;= math.pi
+        return IV(down(math.cos(iv_rad.hi), 2), up(math.cos(iv_rad.lo), 2))
+
+    @staticmethod
+    def sin(iv_rad):
+        assert iv_rad.lo &gt;= 0.0 and iv_rad.hi &lt;= math.pi
+        s_lo = math.sin(iv_rad.lo)
+        s_hi = math.sin(iv_rad.hi)
+        lo_val = down(min(s_lo, s_hi), 2)
+        if iv_rad.lo &lt;= math.pi / 2.0 &lt;= iv_rad.hi:
+            hi_val = 1.0
+        else:
+            hi_val = up(max(s_lo, s_hi), 2)
+        return IV(lo_val, hi_val)
+
+    @staticmethod
+    def min_list(ivs):
+        return IV(min(x.lo for x in ivs), min(x.hi for x in ivs))
+
+    @staticmethod
+    def max_list(ivs):
+        return IV(max(x.lo for x in ivs), max(x.hi for x in ivs))
+
+    def __repr__(self):
+        return f&quot;[{self.lo:+.10f}, {self.hi:+.10f}]&quot;
+
+
+proxyA = PolygonProxy(build_c2_poly(t9_raw, 50.0, 50.0, 0.5, 0.5))
+proxyB = PolygonProxy(build_c2_poly(t11_raw, 120.0, 120.0, t11_hx, t11_hy))
+
+PI_IV = IV(down(math.pi), up(math.pi))
+DEG2RAD = PI_IV / IV(180.0)
+DT_IV = IV(1.3) / IV(60.0)
+G_IV = IV(10.0)
+F_IV = IV(550.0)
+
+area_iv = IV(0.0)
+for i in range(8):
+    x1, y1 = IV.exact(proxyA.m_vertices[i][0]), IV.exact(proxyA.m_vertices[i][1])
+    x2, y2 = IV.exact(proxyA.m_vertices[(i + 1) % 8][0]), IV.exact(proxyA.m_vertices[(i + 1) % 8][1])
+    area_iv = area_iv + IV(0.5) * (x1 * y2 - y1 * x2)
+
+V0_IV = (DT_IV / area_iv) * F_IV
+V0_DT_IV = V0_IV * DT_IV
+G_DT2_IV = G_IV * DT_IV * DT_IV
+
+vA_iv = [(IV.exact(vx), IV.exact(vy)) for vx, vy in proxyA.m_vertices]
+nA_iv = [(IV.exact(nx), IV.exact(ny)) for nx, ny in proxyA.m_normals]
+vB_iv = [(IV.exact(vx), IV.exact(vy)) for vx, vy in proxyB.m_vertices]
+nB_iv = [(IV.exact(nx), IV.exact(ny)) for nx, ny in proxyB.m_normals]
+
+def iv_eval_axis(uid: int, k: int, al_iv: IV, th_deg_iv: IV, kind: str, idx: int) -&gt; IV:
+    b = next(x for x in BLOCKS_SEED3000 if x[&quot;uid&quot;] == uid)
+    bx_iv, by_iv = IV.exact(b[&quot;bx&quot;]), IV.exact(b[&quot;by&quot;])
+    th_iv = th_deg_iv * DEG2RAD
+    c_iv = IV.cos(th_iv)
+    s_iv = IV.sin(th_iv)
+    t_steps = IV(k - 1) + al_iv
+    grav_steps = IV(0.5 * (k - 1) * k) + al_iv * IV(k)
+    xk_iv = IV(7.2) + t_steps * V0_DT_IV * c_iv
+    yk_iv = IV(1.8) + t_steps * V0_DT_IV * s_iv + grav_steps * G_DT2_IV
+    pA = [(xk_iv + c_iv * vx - s_iv * vy, yk_iv + s_iv * vx + c_iv * vy) for vx, vy in vA_iv]
+    pB = [(bx_iv + vx, by_iv + vy) for vx, vy in vB_iv]
+    if kind == &quot;B&quot;:
+        nx, ny = nB_iv[idx]
+        vBx, vBy = pB[idx]
+        dots = [(px - vBx) * nx + (py - vBy) * ny for px, py in pA]
+        return IV.min_list(dots)
+    else:
+        nlx, nly = nA_iv[idx]
+        nx = c_iv * nlx - s_iv * nly
+        ny = s_iv * nlx + c_iv * nly
+        vAx, vAy = pA[idx]
+        dots = [(px - vAx) * nx + (py - vAy) * ny for px, py in pB]
+        return IV.min_list(dots)
+
+def iv_eval_wall19(k: int, al_iv: IV, th_deg_iv: IV) -&gt; IV:
+    th_iv = th_deg_iv * DEG2RAD
+    c_iv = IV.cos(th_iv)
+    s_iv = IV.sin(th_iv)
+    t_steps = IV(k - 1) + al_iv
+    xk_iv = IV(7.2) + t_steps * V0_DT_IV * c_iv
+    dots = [xk_iv + c_iv * vx - s_iv * vy for vx, vy in vA_iv]
+    return IV.min_list(dots)
+
+def iv_alpha_target(uid: int, k: int, th_deg_iv: IV, kind: str, idx: int, target: float = 0.0075) -&gt; IV:
+    s0 = iv_eval_axis(uid, k, IV(0.0), th_deg_iv, kind, idx)
+    s1 = iv_eval_axis(uid, k, IV(1.0), th_deg_iv, kind, idx)
+    return (s0 - IV(target)) / (s0 - s1)
+
+def iv_alpha_wall19(k: int, th_deg_iv: IV, target: float = 0.0075) -&gt; IV:
+    s0 = iv_eval_wall19(k, IV(0.0), th_deg_iv)
+    s1 = iv_eval_wall19(k, IV(1.0), th_deg_iv)
+    return (s0 - IV(target)) / (s0 - s1)
+
+def iv_d_alpha_d_theta_rad(uid: int, k: int, th_deg_iv: IV, kind: str, idx: int, v_idx: int, target: float = 0.0075) -&gt; IV:
+    &quot;&quot;&quot;Outward-rounded interval enclosure of d(alpha)/d(theta_rad) = (s0&#x27;(theta) - alpha(theta)*Delta_s&#x27;(theta)) / Delta_s(theta),
+    plus verification that vertex v_idx is the unique minimizing vertex across th_deg_iv.
+    &quot;&quot;&quot;
+    b = next(x for x in BLOCKS_SEED3000 if x[&quot;uid&quot;] == uid)
+    bx_iv, by_iv = IV.exact(b[&quot;bx&quot;]), IV.exact(b[&quot;by&quot;])
+    th_iv = th_deg_iv * DEG2RAD
+    c_iv = IV.cos(th_iv)
+    s_iv = IV.sin(th_iv)
+    al_iv = iv_alpha_target(uid, k, th_deg_iv, kind, idx, target)
+    s0_iv = iv_eval_axis(uid, k, IV(0.0), th_deg_iv, kind, idx)
+    s1_iv = iv_eval_axis(uid, k, IV(1.0), th_deg_iv, kind, idx)
+    ds_iv = s0_iv - s1_iv
+
+    # Verify v_idx is strictly minimal across th_deg_iv
+    if kind == &quot;B&quot;:
+        nx, ny = nB_iv[idx]
+        projs = [(c_iv * vx - s_iv * vy) * nx + (s_iv * vx + c_iv * vy) * ny for vx, vy in vA_iv]
+        for i in range(8):
+            if i != v_idx:
+                assert projs[v_idx].hi &lt; projs[i].lo, f&quot;Vertex {v_idx} not unique min vs {i}&quot;
+        vx, vy = vA_iv[v_idx]
+        # pA_v(al, th) = (x0 + (k-1+al)*V0*DT*cos(th) + cos(th)*vx - sin(th)*vy, y0 + (k-1+al)*V0*DT*sin(th) + grav + sin(th)*vx + cos(th)*vy)
+        # d(pA_v)/d(th) at al=0:
+        dx0_dth = -IV(k - 1) * V0_DT_IV * s_iv - s_iv * vx - c_iv * vy
+        dy0_dth = IV(k - 1) * V0_DT_IV * c_iv + c_iv * vx - s_iv * vy
+        s0_prime = dx0_dth * nx + dy0_dth * ny
+        # Delta_s(th) = s0(th) - s1(th) = -V0*DT*(cos(th)*nx + sin(th)*ny) - G*DT^2*k*ny
+        ds_prime = -V0_DT_IV * (-s_iv * nx + c_iv * ny)
+        return (s0_prime - al_iv * ds_prime) / ds_iv
+    else:
+        nlx, nly = nA_iv[idx]
+        nx = c_iv * nlx - s_iv * nly
+        ny = s_iv * nlx + c_iv * nly
+        projs = [vx * nx + vy * ny for vx, vy in vB_iv]
+        for j in range(8):
+            if j != v_idx:
+                assert projs[v_idx].hi &lt; projs[j].lo, f&quot;Vertex {v_idx} not unique min vs {j}&quot;
+        # For ball-face axis idx: n_A(th) = R(th)*n_local, and (pB_j - pA_idx) . n_A(th) = (pB_j - x_k(al, th)) . n_A(th) - d_{A,idx}
+        # where d_{A,idx} = vA_{idx} . n_local is independent of theta!
+        # Let D_0(th) = pB_v - x_k(0, th):
+        x0_iv = IV(7.2) + IV(k - 1) * V0_DT_IV * c_iv
+        y0_iv = IV(1.8) + IV(k - 1) * V0_DT_IV * s_iv + IV(0.5 * (k - 1) * k) * G_DT2_IV
+        Dx0 = (bx_iv + vB_iv[v_idx][0]) - x0_iv
+        Dy0 = (by_iv + vB_iv[v_idx][1]) - y0_iv
+        dDx0_dth = IV(k - 1) * V0_DT_IV * s_iv
+        dDy0_dth = -IV(k - 1) * V0_DT_IV * c_iv
+        dnx_dth = -ny
+        dny_dth = nx
+        s0_prime = dDx0_dth * nx + dDy0_dth * ny + Dx0 * dnx_dth + Dy0 * dny_dth
+        # Notice: (x_k(1, th) - x_k(0, th)) . n_A(th) = V0*DT*(cos(th)*nx + sin(th)*ny) + k*G*DT^2*ny
+        # And cos(th)*nx + sin(th)*ny = nlx is CONSTANT in theta!
+        # So Delta_s(th) = s0(th) - s1(th) = V0*DT*nlx + k*G*DT^2*ny(th), whose theta-derivative is simply k*G*DT^2*dny_dth!
+        ds_prime = IV(k) * G_DT2_IV * dny_dth
+        return (s0_prime - al_iv * ds_prime) / ds_iv
+
+def iv_d_alpha_wall19_d_theta_rad(k: int, th_deg_iv: IV, v_idx: int = 4, target: float = 0.0075) -&gt; IV:
+    th_iv = th_deg_iv * DEG2RAD
+    c_iv = IV.cos(th_iv)
+    s_iv = IV.sin(th_iv)
+    projs = [c_iv * vx - s_iv * vy for vx, vy in vA_iv]
+    for i in range(8):
+        if i != v_idx:
+            assert projs[v_idx].hi &lt; projs[i].lo, f&quot;Wall vertex {v_idx} not unique min vs {i}&quot;
+    vx, vy = vA_iv[v_idx]
+    al_iv = iv_alpha_wall19(k, th_deg_iv, target)
+    s0_iv = iv_eval_wall19(k, IV(0.0), th_deg_iv)
+    s1_iv = iv_eval_wall19(k, IV(1.0), th_deg_iv)
+    ds_iv = s0_iv - s1_iv
+    s0_prime = -IV(k - 1) * V0_DT_IV * s_iv - s_iv * vx - c_iv * vy
+    # Delta_s(th) = s0(th) - s1(th) = -V0*DT*cos(th), so ds_prime = +V0*DT*sin(th)
+    ds_prime = V0_DT_IV * s_iv
+    return (s0_prime - al_iv * ds_prime) / ds_iv
+
+def iv_min_alpha_max2(uid: int, k: int, th_deg_iv: IV, ax1, ax2) -&gt; float:
+    s1_0 = iv_eval_axis(uid, k, IV(0.0), th_deg_iv, *ax1)
+    s1_1 = iv_eval_axis(uid, k, IV(1.0), th_deg_iv, *ax1)
+    s2_0 = iv_eval_axis(uid, k, IV(0.0), th_deg_iv, *ax2)
+    s2_1 = iv_eval_axis(uid, k, IV(1.0), th_deg_iv, *ax2)
+    a0, a1 = s1_0.lo, s1_1.lo
+    b0, b1 = s2_0.lo, s2_1.lo
+    d0 = a0 - b0
+    d1 = a1 - b1
+    cands = [max(a0, b0), max(a1, b1)]
+    if d0 * d1 &lt; 0.0:
+        al_iv = IV(down(d0), up(d0)) / (IV(down(d0), up(d0)) - IV(down(d1), up(d1)))
+        val_iv = IV(a0) + al_iv * (IV(a1) - IV(a0))
+        cands.append(val_iv.lo)
+    return min(cands)
+
+if __name__ == &quot;__main__&quot;:
+    # 1. Certify k_1(theta) &gt;= 22 across all of Theta_25 = [48.528962, 67.960117] deg
+    N_sub_25 = 200
+    deg_start = 48.528962
+    deg_end = 67.960117
+    min_lo_k21 = INF
+    for m in range(N_sub_25):
+        a = deg_start + (deg_end - deg_start) * (m / N_sub_25)
+        b = deg_start + (deg_end - deg_start) * ((m + 1) / N_sub_25)
+        sep_iv = iv_eval_axis(25, 21, IV(1.0), IV(down(a), up(b)), &quot;B&quot;, 0)
+        min_lo_k21 = min(min_lo_k21, sep_iv.lo)
+
+    # 2. Certify k_1(theta) &gt;= 23 on [48.528962, 58.007255] and [62.183516, 67.960117], and k_1(theta) = 23 on D=6 plateau
+    # On [48.528962, 58.007257], certify d(sep_B0(25, 22, 1, th))/d(th_rad) &lt; 0 across 50 sub-intervals:
+    dsep_k22_left_max = -INF
+    nx0, ny0 = nB_iv[0]
+    for m in range(50):
+        a = 48.528962 + (58.007257 - 48.528962) * (m / 50.0)
+        b = 48.528962 + (58.007257 - 48.528962) * ((m + 1) / 50.0)
+        th_iv = IV(down(a), up(b)) * DEG2RAD
+        c_iv, s_iv = IV.cos(th_iv), IV.sin(th_iv)
+        for vx5, vy5 in vA_iv:
+            dx_dth = -IV(22.0) * V0_DT_IV * s_iv - s_iv * vx5 - c_iv * vy5
+            dy_dth = IV(22.0) * V0_DT_IV * c_iv + c_iv * vx5 - s_iv * vy5
+            dsep = dx_dth * nx0 + dy_dth * ny0
+            dsep_k22_left_max = max(dsep_k22_left_max, dsep.hi)
+    assert dsep_k22_left_max &lt; 0.0
+    th_k22_l_lo, th_k22_l_hi = 58.007255, 58.007257
+    sep_k22_l_lo = iv_eval_axis(25, 22, IV(1.0), IV(down(th_k22_l_lo), up(th_k22_l_lo)), &quot;B&quot;, 0)
+    sep_k22_l_hi = iv_eval_axis(25, 22, IV(1.0), IV(down(th_k22_l_hi), up(th_k22_l_hi)), &quot;B&quot;, 0)
+    # On [62.183516, 62.25], d(sep_A2(25, 22, 1, th))/d(th_rad) &gt; 0, and on [62.25, 67.960117] direct evaluation on 200 sub-intervals:
+    th_k22_r_lo, th_k22_r_hi = 62.183514, 62.183516
+    sep_k22_r_lo = iv_eval_axis(25, 22, IV(1.0), IV(down(th_k22_r_lo), up(th_k22_r_lo)), &quot;A&quot;, 2)
+    sep_k22_r_hi = iv_eval_axis(25, 22, IV(1.0), IV(down(th_k22_r_hi), up(th_k22_r_hi)), &quot;A&quot;, 2)
+    min_lo_k22_right_bulk = INF
+    for m in range(200):
+        a = 62.25 + (67.960117 - 62.25) * (m / 200.0)
+        b = 62.25 + (67.960117 - 62.25) * ((m + 1) / 200.0)
+        th_iv = IV(down(a), up(b))
+        s_A2 = iv_eval_axis(25, 22, IV(1.0), th_iv, &quot;A&quot;, 2)
+        s_B7 = iv_eval_axis(25, 22, IV(1.0), th_iv, &quot;B&quot;, 7)
+        min_lo_k22_right_bulk = min(min_lo_k22_right_bulk, max(s_A2.lo, s_B7.lo))
+    min_lo_k22_left = sep_k22_l_lo.lo
+    min_lo_k22_right = min(min_lo_k22_right_bulk, sep_k22_r_hi.lo)
+
+    d6_th_iv = IV(down(64.196495), up(64.203161))
+    d6_k22_B7 = iv_eval_axis(25, 22, IV(1.0), d6_th_iv, &quot;B&quot;, 7)
+    d6_k23_all16 = [iv_eval_axis(25, 23, IV(1.0), d6_th_iv, &quot;B&quot;, j) for j in range(8)] + \
+                   [iv_eval_axis(25, 23, IV(1.0), d6_th_iv, &quot;A&quot;, i) for i in range(8)]
+    d6_k23_max_hi = max(x.hi for x in d6_k23_all16)
+
+    # 3. Central Miss Corridor [85.29666640, 94.94268989]
+    corridor_24_min_lo = INF
+    for k in range(28, 35):
+        ax1 = (&quot;A&quot;, 1) if k == 31 else (&quot;B&quot;, 7)
+        ax2 = (&quot;B&quot;, 6)
+        pts = [85.29666640 + (85.35 - 85.29666640) * (i / 500.0) for i in range(500)] + \
+              [85.35 + (94.94268989 - 85.35) * (i / 200.0) for i in range(201)]
+        for m in range(len(pts) - 1):
+            lb = iv_min_alpha_max2(24, k, IV(down(pts[m]), up(pts[m + 1])), ax1, ax2)
+            corridor_24_min_lo = min(corridor_24_min_lo, lb)
+
+    corridor_22_min_lo = INF
+    for k in range(26, 34):
+        ax1 = (&quot;A&quot;, 4) if k == 29 else (&quot;B&quot;, 2)
+        ax2 = (&quot;B&quot;, 3)
+        pts = [85.29666640 + (94.89 - 85.29666640) * (i / 200.0) for i in range(200)] + \
+              [94.89 + (94.94268989 - 94.89) * (i / 500.0) for i in range(501)]
+        for m in range(len(pts) - 1):
+            lb = iv_min_alpha_max2(22, k, IV(down(pts[m]), up(pts[m + 1])), ax1, ax2)
+            corridor_22_min_lo = min(corridor_22_min_lo, lb)
+
+    # 4. Proposition 4 Item 3: Occlusion Crossover t11#24 (B1) vs t11#26 (A1) on [71.500825, 71.700730] at step k=29
+    min_24_k28 = INF
+    min_26_k28 = INF
+    dal24_dth_min, dal24_dth_max = INF, -INF
+    dal26_dth_min, dal26_dth_max = INF, -INF
+    for m in range(50):
+        a = 71.500825 + (71.700730 - 71.500825) * (m / 50.0)
+        b = 71.500825 + (71.700730 - 71.500825) * ((m + 1) / 50.0)
+        th_iv = IV(down(a), up(b))
+        min_24_k28 = min(min_24_k28, iv_eval_axis(24, 28, IV(1.0), th_iv, &quot;B&quot;, 1).lo)
+        min_26_k28 = min(min_26_k28, iv_eval_axis(26, 28, IV(1.0), th_iv, &quot;B&quot;, 7).lo)
+        d24 = iv_d_alpha_d_theta_rad(24, 29, th_iv, &quot;B&quot;, 1, 4)
+        d26 = iv_d_alpha_d_theta_rad(26, 29, th_iv, &quot;A&quot;, 1, 7)
+        dal24_dth_min = min(dal24_dth_min, d24.lo)
+        dal24_dth_max = max(dal24_dth_max, d24.hi)
+        dal26_dth_min = min(dal26_dth_min, d26.lo)
+        dal26_dth_max = max(dal26_dth_max, d26.hi)
+
+    th_star_lo = 71.6213385360
+    th_star_hi = 71.6213385380
+    diff_star_lo = iv_alpha_target(24, 29, IV(down(th_star_lo), up(th_star_lo)), &quot;B&quot;, 1) - \
+                   iv_alpha_target(26, 29, IV(down(th_star_lo), up(th_star_lo)), &quot;A&quot;, 1)
+    diff_star_hi = iv_alpha_target(24, 29, IV(down(th_star_hi), up(th_star_hi)), &quot;B&quot;, 1) - \
+                   iv_alpha_target(26, 29, IV(down(th_star_hi), up(th_star_hi)), &quot;A&quot;, 1)
+
+    # 5. Proposition 4 Item 8: Occlusion Crossover t15#19 (Left Wall, x=0.0 m) vs t11#5 (A1) on [117.651283, 118.749969]
+    min_b5_k37 = INF
+    for m in range(100):
+        a = 117.651283 + (118.749969 - 117.651283) * (m / 100.0)
+        b = 117.651283 + (118.749969 - 117.651283) * ((m + 1) / 100.0)
+        th_iv = IV(down(a), up(b))
+        min_b5_k37 = min(min_b5_k37, iv_eval_axis(5, 37, IV(1.0), th_iv, &quot;B&quot;, 0).lo)
+
+    # On [117.961000, 118.749969], certify t15#19 is ALREADY contacted on step k=37 (sep_w19(37, 1, theta) &lt; 0.0075 m):
+    max_w19_k37_right = -INF
+    for m in range(400):
+        a = 117.961000 + (118.749969 - 117.961000) * (m / 400.0)
+        b = 117.961000 + (118.749969 - 117.961000) * ((m + 1) / 400.0)
+        th_iv = IV(down(a), up(b))
+        max_w19_k37_right = max(max_w19_k37_right, iv_eval_wall19(37, IV(1.0), th_iv).hi)
+
+    # On [117.651283, 117.961000] at step k=38, certify derivatives of alpha_w19 and alpha_{5,A1}:
+    dalw19_dth_min, dalw19_dth_max = INF, -INF
+    dal5_dth_min, dal5_dth_max = INF, -INF
+    for m in range(50):
+        a = 117.651283 + (117.961000 - 117.651283) * (m / 50.0)
+        b = 117.651283 + (117.961000 - 117.651283) * ((m + 1) / 50.0)
+        th_iv = IV(down(a), up(b))
+        dw = iv_d_alpha_wall19_d_theta_rad(38, th_iv, 4)
+        d5 = iv_d_alpha_d_theta_rad(5, 38, th_iv, &quot;A&quot;, 1, 0)
+        dalw19_dth_min = min(dalw19_dth_min, dw.lo)
+        dalw19_dth_max = max(dalw19_dth_max, dw.hi)
+        dal5_dth_min = min(dal5_dth_min, d5.lo)
+        dal5_dth_max = max(dal5_dth_max, d5.hi)
+
+    th_2star_lo = 117.8135854350
+    th_2star_hi = 117.8135854370
+    diff_2star_lo = iv_alpha_wall19(38, IV(down(th_2star_lo), up(th_2star_lo))) - \
+                    iv_alpha_target(5, 38, IV(down(th_2star_lo), up(th_2star_lo)), &quot;A&quot;, 1)
+    diff_2star_hi = iv_alpha_wall19(38, IV(down(th_2star_hi), up(th_2star_hi))) - \
+                    iv_alpha_target(5, 38, IV(down(th_2star_hi), up(th_2star_hi)), &quot;A&quot;, 1)
+
+    out = {
+        &quot;theta25_k1_ge_22&quot;: {
+            &quot;interval_deg&quot;: [48.528962, 67.960117],
+            &quot;num_subintervals&quot;: N_sub_25,
+            &quot;certified_min_sep_B0_at_k21_m&quot;: min_lo_k21,
+            &quot;exceeds_0_010m&quot;: min_lo_k21 &gt; 0.010
+        },
+        &quot;theta25_k1_eq_22_compl&quot;: {
+            &quot;left_interval_deg&quot;: [48.528962, 58.007200],
+            &quot;certified_min_sep_B0_at_k22_left_m&quot;: min_lo_k22_left,
+            &quot;right_interval_deg&quot;: [62.183600, 67.960117],
+            &quot;certified_min_max_A2_B7_at_k22_right_m&quot;: min_lo_k22_right,
+            &quot;exceeds_0_0075m&quot;: (min_lo_k22_left &gt; 0.0075) and (min_lo_k22_right &gt; 0.0075)
+        },
+        &quot;d6_plateau_first_contact_k23&quot;: {
+            &quot;plateau_deg&quot;: [64.196495, 64.203161],
+            &quot;k22_sep_B7_interval_m&quot;: [d6_k22_B7.lo, d6_k22_B7.hi],
+            &quot;k23_max16_sep_upper_bound_m&quot;: d6_k23_max_hi,
+            &quot;certified_k1_eq_23&quot;: (d6_k22_B7.lo &gt; 0.010) and (d6_k23_max_hi &lt; 0.0)
+        },
+        &quot;central_miss_corridor_iv&quot;: {
+            &quot;corridor_deg&quot;: [85.29666640, 94.94268989],
+            &quot;uid24_certified_min_sep_m&quot;: corridor_24_min_lo,
+            &quot;uid22_certified_min_sep_m&quot;: corridor_22_min_lo,
+            &quot;exceeds_toi_threshold_0_00875m&quot;: (corridor_24_min_lo &gt; 0.00875) and (corridor_22_min_lo &gt; 0.00875)
+        },
+        &quot;occlusion_crossover_24_vs_26_k29&quot;: {
+            &quot;interval_deg&quot;: [71.500825, 71.700730],
+            &quot;k28_min_sep_24_B1_m&quot;: min_24_k28,
+            &quot;k28_min_sep_26_B7_m&quot;: min_26_k28,
+            &quot;d_al24_B1_dtheta_rad_interval&quot;: [dal24_dth_min, dal24_dth_max],
+            &quot;d_al26_A1_dtheta_rad_interval&quot;: [dal26_dth_min, dal26_dth_max],
+            &quot;d_diff_dtheta_rad_upper_bound&quot;: dal24_dth_max - dal26_dth_min,
+            &quot;root_bracket_deg&quot;: [th_star_lo, th_star_hi],
+            &quot;diff_al24_minus_al26_at_lo&quot;: [diff_star_lo.lo, diff_star_lo.hi],
+            &quot;diff_al24_minus_al26_at_hi&quot;: [diff_star_hi.lo, diff_star_hi.hi],
+            &quot;certified_unique_crossover_and_ordering&quot;: (
+                (min_24_k28 &gt; 0.010) and (min_26_k28 &gt; 0.010) and
+                (dal24_dth_max &lt; 0.0) and (dal26_dth_min &gt; 0.0) and
+                (diff_star_lo.lo &gt; 0.0) and (diff_star_hi.hi &lt; 0.0)
+            )
+        },
+        &quot;occlusion_crossover_w19_vs_5_k37_k38&quot;: {
+            &quot;interval_deg&quot;: [117.651283, 118.749969],
+            &quot;k37_min_sep_b5_B0_m&quot;: min_b5_k37,
+            &quot;k37_max_sep_w19_on_117_9610_to_118_75_m&quot;: max_w19_k37_right,
+            &quot;k38_subinterval_deg&quot;: [117.651283, 117.961000],
+            &quot;d_alw19_dtheta_rad_interval&quot;: [dalw19_dth_min, dalw19_dth_max],
+            &quot;d_al5_A1_dtheta_rad_interval&quot;: [dal5_dth_min, dal5_dth_max],
+            &quot;d_diff_dtheta_rad_upper_bound&quot;: dalw19_dth_max - dal5_dth_min,
+            &quot;root_bracket_deg&quot;: [th_2star_lo, th_2star_hi],
+            &quot;diff_alw19_minus_al5_at_lo&quot;: [diff_2star_lo.lo, diff_2star_lo.hi],
+            &quot;diff_alw19_minus_al5_at_hi&quot;: [diff_2star_hi.lo, diff_2star_hi.hi],
+            &quot;certified_unique_crossover_and_ordering&quot;: (
+                (min_b5_k37 &gt; 0.010) and (max_w19_k37_right &lt; 0.0075) and
+                (dalw19_dth_max &lt; 0.0) and (dal5_dth_min &gt; 0.0) and
+                (diff_2star_lo.lo &gt; 0.0) and (diff_2star_hi.hi &lt; 0.0)
+            )
+        }
+    }
+
+    with open(os.path.join(os.environ.get(&quot;BALLZ_PROOF_OUT&quot;, &quot;.&quot;), &quot;interval_arithmetic_certification.json&quot;), &quot;w&quot;) as f:
+        json.dump(out, f, indent=2)
+
+    print(json.dumps(out, indent=2))
+</code></pre>
+</article></main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../../../index.html">home</a> · <a href="../../../playground/">playground</a></footer>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../../../sw.js").catch(function(){});</script></body></html>

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>certify_earlyout_and_guard_100ulp.py · nn-dashboard</title><link rel="stylesheet" href="../../../site.css"><link rel="manifest" href="../../../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<body><header class="top"><a class="brand" href="../../../index.html">nn-dashboard</a><nav><a href="../../../demo/">Live demo</a><a href="../../../playground/">Playground</a><a href="../../../docs/PLAIN_ENGLISH.html">In plain English</a><a href="../../../docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
+<main><article>
+<h1>certify_earlyout_and_guard_100ulp.py</h1><p><a href="README.html">&larr; about these files</a></p><pre><code>#!/usr/bin/env python3
+# Reference copy for reading (see README.md in this folder). It cannot run on its own: it imports helper modules (reconstruct_toi, compute_angle_windows, test_la_lb_sim)
+# that are not part of this repository. Set BALLZ_PROOF_MODULES to a folder containing them, and BALLZ_PROOF_OUT for where result files are written.
+&quot;&quot;&quot;
+Rerun of both:
+1. The source-exact CollidePolygons early-out corridor certificate on
+   [85.30766640 deg, 94.93168989 deg] (from certify_earlyout_freeflight.py), and
+2. The corridor guard-strip derivative &amp; endpoint certificate (from
+   certify_corridor_guard_derivatives.py),
+with EVERY trigonometric evaluation (sin, cos, atan/atan2) widened outward by
+100 ULPs on both ends (down(..., 100) and up(..., 100)).
+
+Writes a NEW file: &lt;BALLZ_PROOF_OUT&gt;/earlyout_and_guard_100ulp_certification.json
+&quot;&quot;&quot;
+import json
+import os
+import math
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.environ.get(&quot;BALLZ_PROOF_MODULES&quot;, &quot;.&quot;))
+
+import certify_interval_arithmetic as cia
+from certify_interval_arithmetic import IV, down, up
+
+TRIG_ULPS = 100
+
+
+def cos_100ulp(iv_rad: IV) -&gt; IV:
+    assert iv_rad.lo &gt;= 0.0 and iv_rad.hi &lt;= math.pi
+    return IV(down(math.cos(iv_rad.hi), TRIG_ULPS), up(math.cos(iv_rad.lo), TRIG_ULPS))
+
+
+def sin_100ulp(iv_rad: IV) -&gt; IV:
+    assert iv_rad.lo &gt;= 0.0 and iv_rad.hi &lt;= math.pi
+    s_lo = math.sin(iv_rad.lo)
+    s_hi = math.sin(iv_rad.hi)
+    lo_val = down(min(s_lo, s_hi), TRIG_ULPS)
+    if iv_rad.lo &lt;= math.pi / 2.0 &lt;= iv_rad.hi:
+        hi_val = up(1.0, TRIG_ULPS)
+    else:
+        hi_val = up(max(s_lo, s_hi), TRIG_ULPS)
+    return IV(lo_val, hi_val)
+
+
+def atan2_100ulp(iv_y: IV, iv_x: IV) -&gt; IV:
+    corners = [
+        math.atan2(iv_y.lo, iv_x.lo),
+        math.atan2(iv_y.lo, iv_x.hi),
+        math.atan2(iv_y.hi, iv_x.lo),
+        math.atan2(iv_y.hi, iv_x.hi),
+    ]
+    return IV(down(min(corners), TRIG_ULPS), up(max(corners), TRIG_ULPS))
+
+
+# Monkeypatch IV.cos and IV.sin in certify_interval_arithmetic so both modules use 100-ULP trig
+cia.IV.cos = staticmethod(cos_100ulp)
+cia.IV.sin = staticmethod(sin_100ulp)
+cia.IV.atan2 = staticmethod(atan2_100ulp)
+
+import certify_earlyout_freeflight as ceff
+
+# Also widen the top-wall angle rotation by 100 ULPs
+_ang21 = 1.570796370506287
+_c21_iv = cos_100ulp(IV(down(_ang21, TRIG_ULPS), up(_ang21, TRIG_ULPS)))
+_s21_iv = sin_100ulp(IV(down(_ang21, TRIG_ULPS), up(_ang21, TRIG_ULPS)))
+
+t0 = time.time()
+
+# 1. Run early-out corridor certification on [85.30766640, 94.93168989] with 100-ULP trig + existing POS_PAD/ROT_PAD
+blocks = [ceff.Target(f&quot;t11#{b[&#x27;uid&#x27;]}&quot;, ceff.proxyB, b[&quot;bx&quot;], b[&quot;by&quot;], True) for b in ceff.BLOCKS_SEED3000]
+all_tgts = blocks + ceff.WALLS
+
+lo_c = 85.29666639842317 + 0.011
+hi_c = 94.94268989444233 - 0.011
+
+good_with_pad, bad_with_pad, stats_with_pad = ceff.certify_range(
+    lo_c, hi_c, all_tgts, ceff.kmax_below(28.5), min_width=1e-6, init_pieces=64
+)
+
+# 2. Also run early-out corridor certification with 100-ULP trig ONLY (POS_PAD = 0, ROT_PAD = 0)
+orig_pos_pad, orig_rot_pad = ceff.POS_PAD, ceff.ROT_PAD
+ceff.POS_PAD = 0.0
+ceff.ROT_PAD = 0.0
+good_pure_100ulp, bad_pure_100ulp, stats_pure_100ulp = ceff.certify_range(
+    lo_c, hi_c, all_tgts, ceff.kmax_below(28.5), min_width=1e-6, init_pieces=64
+)
+ceff.POS_PAD, ceff.ROT_PAD = orig_pos_pad, orig_rot_pad
+
+# 3. Run corridor guard-strip derivative certification with 100-ULP trig (inline, without touching existing JSON)
+PI_IV = IV(down(math.pi), up(math.pi))
+DEG_TO_RAD = PI_IV / IV(180.0)
+dt_iv = cia.DT_IV
+g_iv = cia.G_IV
+F_iv = cia.F_IV
+vertsA_iv = [(IV(vx), IV(vy)) for vx, vy in ceff.proxyA.m_vertices]
+vertsB_iv = [(IV(vx), IV(vy)) for vx, vy in ceff.proxyB.m_vertices]
+normsA_iv = [(IV(nx), IV(ny)) for nx, ny in ceff.proxyA.m_normals]
+normsB_iv = [(IV(nx), IV(ny)) for nx, ny in ceff.proxyB.m_normals]
+area_iv = IV(0.0)
+for i in range(8):
+    x1, y1 = vertsA_iv[i]
+    x2, y2 = vertsA_iv[(i + 1) % 8]
+    area_iv = area_iv + IV(0.5) * (x1 * y2 - y1 * x2)
+v0_iv = (dt_iv / area_iv) * F_iv
+
+
+def eval_axis_iv_100(uid, k, al_iv, th_iv, kind, idx):
+    b = next(x for x in ceff.BLOCKS_SEED3000 if x[&quot;uid&quot;] == uid)
+    bx_iv, by_iv = IV(b[&quot;bx&quot;]), IV(b[&quot;by&quot;])
+    k_iv, km1_iv = IV(float(k)), IV(float(k - 1))
+    c_iv, s_iv = cos_100ulp(th_iv), sin_100ulp(th_iv)
+    t_step = km1_iv + al_iv
+    xk = IV(7.2) + t_step * v0_iv * dt_iv * c_iv
+    yk = IV(1.8) + t_step * v0_iv * dt_iv * s_iv + (IV(0.5) * km1_iv * k_iv + al_iv * k_iv) * g_iv * dt_iv * dt_iv
+    pA = [(xk + c_iv * vx - s_iv * vy, yk + s_iv * vx + c_iv * vy) for vx, vy in vertsA_iv]
+    pB = [(bx_iv + vx, by_iv + vy) for vx, vy in vertsB_iv]
+    if kind == &quot;B&quot;:
+        nx, ny = normsB_iv[idx]
+        vBx, vBy = pB[idx]
+        vals = [(px - vBx) * nx + (py - vBy) * ny for px, py in pA]
+    else:
+        nlx, nly = normsA_iv[idx]
+        nx, ny = c_iv * nlx - s_iv * nly, s_iv * nlx + c_iv * nly
+        vAx, vAy = pA[idx]
+        vals = [(px - vAx) * nx + (py - vAy) * ny for px, py in pB]
+    return IV(min(v.lo for v in vals), min(v.hi for v in vals))
+
+
+def exact_min_max2_iv_100(uid, k, th_deg, ax1, ax2):
+    th_iv = IV(th_deg) * DEG_TO_RAD
+    s1_0 = eval_axis_iv_100(uid, k, IV(0.0), th_iv, *ax1)
+    s1_1 = eval_axis_iv_100(uid, k, IV(1.0), th_iv, *ax1)
+    s2_0 = eval_axis_iv_100(uid, k, IV(0.0), th_iv, *ax2)
+    s2_1 = eval_axis_iv_100(uid, k, IV(1.0), th_iv, *ax2)
+    max_0 = IV(max(s1_0.lo, s2_0.lo), max(s1_0.hi, s2_0.hi))
+    max_1 = IV(max(s1_1.lo, s2_1.lo), max(s1_1.hi, s2_1.hi))
+    d0 = s1_0 - s2_0
+    d1 = s1_1 - s2_1
+    candidates_lo = [max_0.lo, max_1.lo]
+    candidates_hi = [max_0.hi, max_1.hi]
+    if d0.lo * d1.hi &lt; 0 or d0.hi * d1.lo &lt; 0:
+        denom = d0 - d1
+        if denom.lo &gt; 0.0 or denom.hi &lt; 0.0:
+            al_star = d0 / denom
+            al_clamped = IV(max(0.0, min(1.0, al_star.lo)), max(0.0, min(1.0, al_star.hi)))
+            val_star = s1_0 + al_clamped * (s1_1 - s1_0)
+            candidates_lo.append(val_star.lo)
+            candidates_hi.append(val_star.hi)
+    return {
+        &quot;min_val_iv&quot;: [min(candidates_lo), min(candidates_hi)],
+        &quot;step_start_alpha0_iv&quot;: [max_0.lo, max_0.hi],
+        &quot;certified_gt_0p0100&quot;: bool(min(candidates_lo) &gt; 0.0100 and max_0.lo &gt; 0.0100),
+    }
+
+
+guard_100ulp = {
+    &quot;uid24_k31_at_85p30766640&quot;: exact_min_max2_iv_100(24, 31, 85.30766640, (&quot;A&quot;, 1), (&quot;B&quot;, 6)),
+    &quot;uid22_k29_at_94p93168989&quot;: exact_min_max2_iv_100(22, 29, 94.93168989, (&quot;A&quot;, 4), (&quot;B&quot;, 3)),
+}
+
+elapsed = time.time() - t0
+
+out = {
+    &quot;trig_widening_ulps&quot;: TRIG_ULPS,
+    &quot;how_trig_bounds_were_originally_computed&quot;: {
+        &quot;certify_interval_arithmetic_IV_cos_sin&quot;: (
+            &quot;In certify_interval_arithmetic.py (lines 85-99), IV.cos(iv_rad) and IV.sin(iv_rad) &quot;
+            &quot;assert 0 &lt;= iv_rad.lo &lt;= iv_rad.hi &lt;= pi, evaluate math.cos / math.sin at the interval &quot;
+            &quot;endpoints, and widen outward by 2 ULPs on each end via down(..., 2) and up(..., 2) &quot;
+            &quot;(iterating math.nextafter toward -inf and +inf twice). Elementary operations (+, -, *, /, sqrt) &quot;
+            &quot;widen outward by 1 ULP via down(..., 1) and up(..., 1). PI_IV is [down(math.pi, 1), up(math.pi, 1)].&quot;
+        ),
+        &quot;certify_earlyout_freeflight_trig_and_pose&quot;: (
+            &quot;In certify_earlyout_freeflight.py (lines 47-48, 91-106), trig(th_deg) converts th_deg * DEG2RAD, &quot;
+            &quot;calls IV.cos(th) and IV.sin(th) (2 ULPs outward), and then applies widen(..., ROT_PAD) with &quot;
+            &quot;ROT_PAD = 1e-12 (~4,500 ULPs near 1.0 and ~72,000 ULPs near |cos(85.3 deg)| = 0.082) plus &quot;
+            &quot;1 ULP via down/up. Furthermore, pose(k, al, c, s) widens the world coordinates (x, y) by &quot;
+            &quot;POS_PAD = 1e-9 m (~1.1e6 ULPs at x = 7.2 m) plus 1 ULP.&quot;
+        ),
+        &quot;certify_corridor_guard_derivatives&quot;: (
+            &quot;In certify_corridor_guard_derivatives.py, IV.cos and IV.sin from certify_interval_arithmetic.py &quot;
+            &quot;(2 ULPs outward) are used directly without additional ROT_PAD/POS_PAD.&quot;
+        ),
+    },
+    &quot;earlyout_corridor_with_100ulp_trig_and_pads&quot;: {
+        &quot;range_deg&quot;: [lo_c, hi_c],
+        &quot;fully_certified&quot;: len(bad_with_pad) == 0,
+        &quot;certified_intervals&quot;: good_with_pad,
+        &quot;uncertified_intervals&quot;: bad_with_pad,
+        &quot;min_certified_start_edge_sep_by_target_m&quot;: stats_with_pad,
+        &quot;global_min_sep_m&quot;: min(stats_with_pad.values()),
+    },
+    &quot;earlyout_corridor_with_100ulp_trig_only_no_extra_pad&quot;: {
+        &quot;range_deg&quot;: [lo_c, hi_c],
+        &quot;fully_certified&quot;: len(bad_pure_100ulp) == 0,
+        &quot;certified_intervals&quot;: good_pure_100ulp,
+        &quot;uncertified_intervals&quot;: bad_pure_100ulp,
+        &quot;min_certified_start_edge_sep_by_target_m&quot;: stats_pure_100ulp,
+        &quot;global_min_sep_m&quot;: min(stats_pure_100ulp.values()),
+    },
+    &quot;guard_derivative_certification_with_100ulp_trig&quot;: guard_100ulp,
+    &quot;elapsed_s&quot;: elapsed,
+}
+
+out_path = os.path.join(os.environ.get(&quot;BALLZ_PROOF_OUT&quot;, &quot;.&quot;), &quot;earlyout_and_guard_100ulp_certification.json&quot;)
+with open(out_path, &quot;w&quot;) as f:
+    json.dump(out, f, indent=2)
+
+print(&quot;Wrote&quot;, out_path)
+print(&quot;With 100-ULP trig + pads: fully_certified =&quot;, out[&quot;earlyout_corridor_with_100ulp_trig_and_pads&quot;][&quot;fully_certified&quot;],
+      &quot;global_min_sep_m =&quot;, out[&quot;earlyout_corridor_with_100ulp_trig_and_pads&quot;][&quot;global_min_sep_m&quot;])
+print(&quot;With 100-ULP trig only:   fully_certified =&quot;, out[&quot;earlyout_corridor_with_100ulp_trig_only_no_extra_pad&quot;][&quot;fully_certified&quot;],
+      &quot;global_min_sep_m =&quot;, out[&quot;earlyout_corridor_with_100ulp_trig_only_no_extra_pad&quot;][&quot;global_min_sep_m&quot;])
+print(&quot;Guard derivative k=31 at_theta_lo_shrunk:&quot;, guard_100ulp[&quot;uid24_k31_at_85p30766640&quot;][&quot;min_val_iv&quot;])
+print(&quot;Guard derivative k=29 at_theta_hi_shrunk:&quot;, guard_100ulp[&quot;uid22_k29_at_94p93168989&quot;][&quot;min_val_iv&quot;])
+</code></pre>
+</article></main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../../../index.html">home</a> · <a href="../../../playground/">playground</a></footer>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../../../sw.js").catch(function(){});</script></body></html>
