@@ -9,6 +9,8 @@ It reads training logs, checkpoints and systemd status from directories you conf
 
 **Live site:** the dashboard demo, the playground and the docs as web pages: **https://jaxsondez93-arch.github.io/nn-dashboard/** (installable as an app, works offline). Rebuild it with `python3 tools/build_pages.py site`.
 
+**Lend your processor:** a safe, opt-in volunteer-computing page: https://jaxsondez93-arch.github.io/nn-dashboard/contribute/ ([how it works](docs/CONTRIBUTE_COMPUTE.md)).
+
 **New here? Start with [In plain English](docs/PLAIN_ENGLISH.md)** (what this is, a guided tour, a glossary and a pop-culture decoder, no software background needed).
 
 **Documentation:** [version history with screenshots](docs/VERSION_HISTORY.md) · [what we learned](docs/LEARNINGS.md) · [results](docs/RESULTS.md) · [how it works](docs/ARCHITECTURE.md) · [how to read the charts](docs/HOW_TO_READ_THE_CHARTS.md) · [the story so far](docs/STORY.md) · [security notes](SECURITY.md) · [contributing](CONTRIBUTING.md)
