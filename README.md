@@ -7,6 +7,8 @@ It reads training logs, checkpoints and systemd status from directories you conf
 
 ![Dashboard v2.3](docs/images/dashboard_v2.3.png)
 
+**Live site:** the dashboard demo, the playground and the docs as web pages: **https://jaxsondez93-arch.github.io/nn-dashboard/** (installable as an app, works offline). Rebuild it with `python3 tools/build_pages.py site`.
+
 **New here? Start with [In plain English](docs/PLAIN_ENGLISH.md)** (what this is, a guided tour, a glossary and a pop-culture decoder, no software background needed).
 
 **Documentation:** [version history with screenshots](docs/VERSION_HISTORY.md) · [what we learned](docs/LEARNINGS.md) · [results](docs/RESULTS.md) · [how it works](docs/ARCHITECTURE.md) · [how to read the charts](docs/HOW_TO_READ_THE_CHARTS.md) · [the story so far](docs/STORY.md) · [security notes](SECURITY.md) · [contributing](CONTRIBUTING.md)
@@ -15,7 +17,7 @@ It reads training logs, checkpoints and systemd status from directories you conf
 ## Try it in 30 seconds (no data needed)
 
     python3 demo/make_demo_data.py demo_run
-    NN_DATA=demo_run NN_WORK=demo_run NN_DASH_NOAUTH=1 python3 server.py
+    NN_DATA=demo_run NN_WORK=demo_run NN_DASH_NOAUTH=1 NN_DASH_DEMO=1 python3 server.py
     # open http://127.0.0.1:8765
 
 The demo writes five days of invented training data (a loss that decays, a laptop that heats up and slows down, two machine stops) so every chart has something to show.
@@ -32,6 +34,7 @@ The demo writes five days of invented training data (a loss that decays, a lapto
 | `NN_DASH_PORT` / `NN_DASH_BIND` | `8765` / `127.0.0.1` | listen address |
 | `NN_TRAIN_UNIT` | `nn-train.service` | systemd user unit shown as the trainer |
 | `NN_RUNS` | unset | `dir=unit;dir=unit`: follow whichever run is active (newest first) |
+| `NN_DASH_DEMO=1` | off | synthetic "machine" and "service" cards, so a demo shows no real machine data |
 | `NN_DASH_NOAUTH=1` | off | browser use without login; honoured **only** on loopback |
 
 Do not expose the dashboard to the internet. Reach it through a private network (Tailscale, WireGuard, SSH tunnel). Over plain HTTP a session token can be sniffed, so use a private tunnel or TLS.

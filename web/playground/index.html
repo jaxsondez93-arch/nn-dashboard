@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Playground · nn-dashboard</title>
+<link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<body>
+<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="./">Playground</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a><a href="../docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
+<main>
+<h1>Playground</h1>
+<p class="note">Three small experiments you can poke. Everything runs in your browser on made-up numbers: nothing is sent anywhere.</p>
+
+<section class="lab" id="corr"><h2>1. What does a correlation look like?</h2>
+<p>Each dot is one measurement of two things. The number <b>r</b> says how closely they move together: +1 in lockstep, 0 unrelated, -1 opposite. <b>R&sup2;</b> is r squared: the share of the wiggle one explains about the other.</p>
+<div class="controls"><label>true link <input id="c-r" type="range" min="-0.99" max="0.99" step="0.01" value="0.7"><output id="c-r-o"></output></label>
+<label>dots <input id="c-n" type="range" min="10" max="500" step="10" value="120"><output id="c-n-o"></output></label><button class="small" id="c-new">new random dots</button></div>
+<canvas id="c-cv" width="720" height="300"></canvas><div class="readout" id="c-out"></div>
+<p class="note">Try 15 dots with a true link of 0: you will often see a "pattern" that is only luck. That is why the dashboard reports an interval, not just r.</p></section>
+
+<section class="lab" id="band"><h2>2. Two kinds of bands around a trend line</h2>
+<p>The straight line is the best fit through the dots. The <b>narrow band</b> says where the <i>true</i> line probably is. The <b>wide band</b> says where <i>new</i> dots should land. More dots shrink the narrow band; they do nothing to the wide one, because noise is noise.</p>
+<div class="controls"><label>noise <input id="b-s" type="range" min="0.2" max="3" step="0.1" value="1.2"><output id="b-s-o"></output></label>
+<label>dots <input id="b-n" type="range" min="8" max="300" step="1" value="30"><output id="b-n-o"></output></label>
+<label><input id="b-cb" type="checkbox" checked> narrow (confidence)</label><label><input id="b-pb" type="checkbox" checked> wide (prediction)</label><button class="small" id="b-new">new random dots</button></div>
+<canvas id="b-cv" width="720" height="300"></canvas><div class="readout" id="b-out"></div>
+<p class="note">The true slope is 0.5. Watch whether the interval for the slope contains it, and how its width falls as you add dots.</p></section>
+
+<section class="lab" id="search"><h2>3. Choosing where to aim when testing costs time</h2>
+<p>Each of the 781 aims has a hidden damage score. You may <b>test</b> only a few. The bars are the true scores; the coloured ticks show which aims each strategy tested. <b>Regret</b> = best possible minus best found (lower is better). The "hunch" strategy uses a quick, imperfect guess to decide <i>what</i> to test, like the learned scorer in the real project.</p>
+<div class="controls"><label>tests allowed <input id="s-k" type="range" min="10" max="120" step="1" value="30"><output id="s-k-o"></output></label>
+<label>hunch quality <input id="s-q" type="range" min="0" max="1" step="0.05" value="0.6"><output id="s-q-o"></output></label>
+<button class="small" id="s-new">new board</button> <button class="small" id="s-run">run 300 boards</button></div>
+<canvas id="s-cv" width="720" height="260"></canvas><div class="readout" id="s-out"></div>
+<canvas id="s-bar" width="720" height="150"></canvas><div class="readout" id="s-avg"></div>
+<p class="note">What to look for: random tests are the worst. "Zoom in" strategies need enough tests for the first pass to land near a peak, so with very few tests plain even spacing can beat them, and with plenty they win easily. A decent hunch wins at every budget, but a useless one (quality 0) is <i>worse than random</i>: it spends its zoom-in budget around an arbitrary spot. This is a toy: the real board also has 781 aims, but the real scores are not smooth bumps.</p></section>
+</main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/PLAIN_ENGLISH.html">what is all this?</a></footer>
+<script src="playground.js"></script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js").catch(function(){});</script>
+</body></html>

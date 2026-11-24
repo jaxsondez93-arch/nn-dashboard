@@ -12,3 +12,5 @@ nn_data*/
 *.tsv
 __pycache__/
 *.pyc
+# generated website (built by tools/build_pages.py, published from the gh-pages branch)
+site/
