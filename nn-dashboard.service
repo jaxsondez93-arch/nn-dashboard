@@ -1,0 +1,10 @@
+[Unit]
+Description=Training dashboard (read-only, loopback, paired-device auth)
+
+[Service]
+ExecStart=/usr/bin/python3 -B %h/nn-dashboard/server.py
+Restart=on-failure
+Nice=19
+
+[Install]
+WantedBy=default.target

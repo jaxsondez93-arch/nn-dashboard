@@ -1,0 +1,14 @@
+# secrets and per-install state: never commit
+pair.secret
+devices.json
+pairing.json
+*.secret
+.config/
+# data, logs, checkpoints, labels, boards
+nn_data*/
+*.jsonl
+*.npz
+*.log
+*.tsv
+__pycache__/
+*.pyc
