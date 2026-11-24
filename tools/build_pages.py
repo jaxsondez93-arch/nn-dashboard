@@ -27,7 +27,7 @@ def target(src):                                       # repo path of a markdown
 
 GAME_NOTICE = """FALLING BALLZ (Construct 2 HTML5 export): game files shown on this site at the request of the site owner, who has stated that redistribution is permitted.
 These files are NOT part of the nn-dashboard source code and are NOT covered by its MIT licence. No licence for them is claimed here.
-Changes made for hosting: the portal script tag (../../next/next-adapter.js) was removed from index.html; nothing else was modified.
+Changes made for hosting: the portal script tag (../../next/next-adapter.js) was removed from index.html, and a blank 1x1 loading-logo.png was added because the game's loader requests that file and it was not among the files. Nothing else was modified.
 To request removal, open an issue on the repository; deleting the play/game folder removes the game from the site.
 """
 
@@ -38,7 +38,9 @@ def add_game(out):
     if not src or not os.path.isfile(os.path.join(src, "index.html")): return False
     dst = out + "/play/game"; shutil.copytree(src, dst, ignore=shutil.ignore_patterns("*.orig", "*.bak*", "sw.js", "__pycache__"))
     page = open(os.path.join(dst, "index.html"), encoding="utf-8-sig").read(); page = page.replace('<script src="../../next/next-adapter.js"></script>', "")
-    open(os.path.join(dst, "index.html"), "w", encoding="utf-8").write(page); open(os.path.join(dst, "NOTICE.txt"), "w").write(GAME_NOTICE); return True
+    open(os.path.join(dst, "index.html"), "w", encoding="utf-8").write(page); open(os.path.join(dst, "NOTICE.txt"), "w").write(GAME_NOTICE)
+    import base64; open(os.path.join(dst, "loading-logo.png"), "wb").write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="))   # blank pixel
+    return True
 
 
 def build(out):

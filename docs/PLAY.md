@@ -21,4 +21,4 @@ The aim is the candidate pixel (out of 781) whose launch angle is closest to the
 ## The game files and the notice
 The game ("FALLING BALLZ", a Construct 2 HTML5 export) is not part of this repository's source and is not covered by its MIT licence. It is added to the published site only when the site is built (`NN_GAME_DIR=<folder> python3 tools/build_pages.py site`), at the request of the site owner, who has stated that redistribution is permitted. No licence for the game is claimed here, and its folder carries a `NOTICE.txt`. Deleting the `play/game` folder removes the game from the site. If you are a rights holder and want it removed, open an issue on the repository.
 
-The only change made to the game files for hosting: the portal script tag (`../../next/next-adapter.js`) was removed from the page.
+Changes made to the game files for hosting: the portal script tag (`../../next/next-adapter.js`) was removed from the page, and a blank 1x1 `loading-logo.png` was added because the game's loader requests that file and it was not among the files (without it the loader crashes).
