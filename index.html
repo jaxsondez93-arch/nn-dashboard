@@ -482,12 +482,17 @@ function renderTrend(){
   box.innerHTML=`<div class="trendwrap"><table class="trendtab"><tr><th>metric</th><th>fitted over</th><th>points · calibration</th><th>slope</th><th>${level()}% interval${prefs.bmethod==='bootstrap'?' (block bootstrap)':''}</th><th>R² (adjusted) · ρ</th><th>quadratic R² · is a straight line enough?</th><th>verdict</th><th>projection</th></tr>${rows}</table></div>
    <div class="fine">Ordinary least squares on the plotted points. The interval is widened by the lag-1 residual autocorrelation ρ, because neighbouring training points are strongly correlated; a naive interval would be too tight. "Detectable" means the interval excludes zero. Time charts are fitted on the latest continuous stretch (after the last stop). Validation uses 4 games, so its trend is only a rough guide. A projection extends the straight line and is not a forecast. <b>Bands:</b> the confidence band shows where the true line plausibly lies; the wider prediction band shows where individual new points should fall. "Calibration" is the share of the plotted points that actually fall inside the prediction band: far below the chosen level means the band is too narrow for this data. The block bootstrap resamples chunks of consecutive points, so it keeps the autocorrelation without assuming a distribution (the prediction band stays analytic).</div>`;
 }
+let failed=false;
 async function tick(){
-  clearTimeout(timer);
+  clearTimeout(timer);failed=false;
   try{const r=await fetch('/api/stats?range='+encodeURIComponent(prefs.range),{cache:'no-store'});if(!r.ok)throw new Error(r.status);render(await r.json())}
-  catch(e){$('upd').textContent='cannot reach the dashboard server ('+e.message+') — retrying';$('banners').innerHTML='<div class="banner bad"><b>Dashboard server unreachable.</b> The page will retry automatically.</div>'}
-  if(prefs.refresh>0)timer=setTimeout(tick,prefs.refresh*1000);
+  catch(e){failed=true;$('upd').textContent='cannot reach the dashboard server ('+e.message+') — retrying every 5 s';$('banners').innerHTML='<div class="banner bad"><b>Dashboard server unreachable.</b> The page will keep retrying automatically.</div>'}
+  /* always keep polling: every 5 s while disconnected; the chosen interval otherwise (a manual-only setting still self-heals after a disconnect) */
+  if(failed)timer=setTimeout(tick,5000);else if(prefs.refresh>0)timer=setTimeout(tick,prefs.refresh*1000);
 }
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
+window.addEventListener('online',()=>tick());
+window.addEventListener('focus',()=>tick());
 $('theme').onclick=()=>{const r=document.documentElement,cur=r.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');r.dataset.theme=cur==='dark'?'light':'dark';try{localStorage.setItem('nn-theme',r.dataset.theme)}catch(e){};if(last)render(last)};
 try{const t=localStorage.getItem('nn-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
 $('pairsel').onchange=onControl;$('regsel').onchange=onControl;$('cmatrix').onclick=cellClick;

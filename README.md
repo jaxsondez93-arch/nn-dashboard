@@ -13,6 +13,8 @@ It reads training logs, checkpoints and systemd status from directories you conf
 | `NN_WORK` | `~/nn_overnight` | sampler/watchdog output dir |
 | `NN_DASH_CONFIG` | `~/.config/nn-dashboard` | holds `pair.secret`, `devices.json`, `pairing.json` |
 | `NN_DASH_PORT` / `NN_DASH_BIND` | `8765` / `127.0.0.1` | listen address |
+| `NN_TRAIN_UNIT` | `nn-train.service` | systemd user unit shown as the trainer |
+| `NN_RUNS` | unset | `dir=unit;dir=unit`: follow whichever run is active (newest first) |
 | `NN_DASH_NOAUTH=1` | off | browser use without login; honoured **only** on loopback |
 
 Do not expose the dashboard to the internet. Reach it through a private network (Tailscale, WireGuard, SSH tunnel). Over plain HTTP a session token can be sniffed, so use a private tunnel or TLS.

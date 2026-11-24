@@ -8,6 +8,25 @@ HOME = os.path.expanduser("~")
 D = os.environ.get("NN_DATA", HOME + "/nn_data")          # training data dir (logs/, ckpt/, labels/)
 W = os.environ.get("NN_WORK", HOME + "/nn_overnight")      # sampler/watchdog output dir
 CFG = os.environ.get("NN_DASH_CONFIG", HOME + "/.config/nn-dashboard")
+TRAIN_UNIT = os.environ.get("NN_TRAIN_UNIT", "nn-train.service")
+# Optional automatic run selection: NN_RUNS="dir=unit;dir=unit" (e.g. a newer run first). The run whose trainer unit is active wins, else the freshest heartbeat. Unset = fixed NN_DATA / NN_TRAIN_UNIT.
+RUNS = [tuple(x.split("=", 1)) for x in os.environ.get("NN_RUNS", "").split(";") if "=" in x]
+
+
+def pick_run():
+    global D, TRAIN_UNIT
+    best = None
+    for d, u in RUNS:
+        d = os.path.expanduser(d)
+        try:
+            m = os.path.getmtime(d + "/logs/heartbeat.jsonl")
+        except OSError:
+            continue
+        key = (unit(u).get("ActiveState") == "active", m)
+        if best is None or key > best[0]:
+            best = (key, d, u)
+    if best:
+        D, TRAIN_UNIT = best[1], best[2]
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("NN_DASH_PORT", "8765"))
 MAXPTS = 700
@@ -240,7 +259,7 @@ def build(range_key):
         aligned=al, bin_s=bin_s,
         now=now, range=range_key if range_key in RANGES else "run", since=since, run_start=run_start,
         summary=summarize(hb, tr, since if since else (hb_all[0]["t"] if hb_all else now), now, gaps),
-        services=dict(train=unit("nn-train.service"), label=unit("nn-label.service")),
+        services=dict(train=unit(TRAIN_UNIT), label=unit("nn-label.service")),
         host=host(),
         heartbeat_age_s=(now - last_hb["t"]) if last_hb else None,
         last_heartbeat=last_hb,
@@ -265,6 +284,7 @@ def stats(range_key):
     with _lock:
         c = _cache.get(key)
         if c is None or time.time() - c[0] > 8:
+            pick_run()
             _cache[key] = (time.time(), json.dumps(build(key)).encode())
         return _cache[key][1]
 
