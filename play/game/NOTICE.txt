@@ -1,0 +1,4 @@
+FALLING BALLZ (Construct 2 HTML5 export): game files shown on this site at the request of the site owner, who has stated that redistribution is permitted.
+These files are NOT part of the nn-dashboard source code and are NOT covered by its MIT licence. No licence for them is claimed here.
+Changes made for hosting: the portal script tag (../../next/next-adapter.js) was removed from index.html; nothing else was modified.
+To request removal, open an issue on the repository; deleting the play/game folder removes the game from the site.

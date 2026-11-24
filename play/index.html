@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self'; worker-src 'self'; manifest-src 'self'; media-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Watch the bot play · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb">
+<style>
+.stage { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; align-items:start; } @media (min-width: 900px) { .stage { grid-template-columns: auto 1fr; } }
+.screen { position:relative; width:100%; max-width:480px; margin:0 auto; background:#000; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.screen iframe { position:absolute; left:0; top:0; width:480px; height:853px; border:0; transform-origin:0 0; background:#000; }
+.pill { display:inline-block; padding:.1rem .6rem; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:.9rem; }
+table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding:.25rem .4rem; }
+#missing { display:none; } .bar { height:10px; background:var(--accent); border-radius:4px; }
+</style></head>
+<body>
+<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="./">Watch the bot play</a><a href="../contribute/">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
+<main>
+<h1>Watch the bot play the real game</h1>
+<p>The game runs in this page, on your device. The bot looks at the blocks on screen, picks an aim and taps it, exactly as the earlier laptop bot did, and logs what happens. Nothing is sent anywhere.</p>
+<section class="lab" id="missing"><h2>The game files are not on this copy of the site</h2><p>This page needs the game in <code>play/game/</code>. See <a href="../docs/PLAY.html">how it is set up</a>.</p></section>
+<div class="stage" id="stage">
+  <div><div class="screen" id="screen"><iframe id="game" src="game/index.html" title="Falling Ballz" allow="autoplay"></iframe></div>
+  <p class="note" style="text-align:center">You can also play it yourself: pause the bot, then tap.</p></div>
+  <div>
+    <section class="lab"><h2>The bot</h2>
+      <div class="controls"><label>strategy <select id="strategy"><option value="mix" selected>Mix (a random arm each turn)</option><option value="top">Top block</option><option value="pair">Tightest pair</option><option value="wall">Near a wall</option><option value="random">Random aim</option></select></label></div>
+      <div class="controls"><button class="small" id="start">Start the bot</button> <button class="small" id="stop" disabled>Pause</button> <button class="small" id="dl" disabled>Download the log</button> <span class="pill" id="state">idle</span></div>
+      <div class="readout" id="now">Press Start. The first game begins on its own.</div>
+      <p class="note">Strategies use only what a player can see (no simulator): they pick a block and aim the launcher at its centre. The bot does not claim to be good; the interesting part is the log.</p></section>
+    <section class="lab"><h2>Results so far</h2><div class="readout" id="summary">No games yet.</div><div id="bars"></div>
+      <table class="log" id="turns"><thead><tr><th>turn</th><th>arm</th><th>balls</th><th>blocks</th><th>damage</th><th>secs</th></tr></thead><tbody></tbody></table></section>
+  </div>
+</div>
+<p class="note">The game "FALLING BALLZ" is shown here at the site owner's request and is not part of the nn-dashboard source or its licence. See <a href="../docs/PLAY.html">the notice</a>.</p>
+</main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/PLAY.html">how this works</a> · <a href="https://github.com/jaxsondez93-arch/nn-dashboard">source</a></footer>
+<script src="bot.js"></script><script src="driver.js"></script><script src="../register-sw.js"></script>
+</body></html>
