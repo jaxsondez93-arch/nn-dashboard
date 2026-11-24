@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Security notes · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<body><header class="top"><a class="brand" href="../index.html">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a><a href="../docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
+<main><article>
+<h1 id="security-notes">Security notes</h1>
+<p><strong>Status: experimental and unaudited.</strong> The login code was written for a hobby project, has had no independent security review, and has no TLS of its own. Do not rely on it to protect anything important.</p>
+<h2 id="intended-use">Intended use</h2>
+<p>Run the dashboard bound to <code>127.0.0.1</code> (the default) and reach it from your own devices through a private network (Tailscale, WireGuard, an SSH tunnel). Do not expose it directly to the internet. Over plain HTTP, a session token can be read by anyone on the path.</p>
+<h2 id="what-the-login-does">What the login does</h2>
+<ul><li>A 32-byte master key is created on first run (file mode 0600 in a 0700 directory) from the operating system's random source (Python's <code>secrets</code>). The server refuses to start if the file has the wrong permissions, length, or is all zeros.</li><li>A phone pairs with a single-use, 5-minute, 128-bit token (stored only as a hash) and receives its own device key, derived from the master key, shown once.</li><li>Each login is a challenge-response: the server sends a fresh random value, the phone answers with an HMAC of it. Values are single-use, comparisons are constant-time, failures are rate-limited per client address, and sessions last an hour and live only in memory.</li><li>Deleting a device from <code>devices.json</code> revokes it.</li><li>The endpoints are read-only: nothing a phone sends can start, stop or modify the training.</li></ul>
+<h2 id="known-gaps">Known gaps</h2>
+<ul><li>No TLS; no protection against someone who can read the network path.</li><li>Rate limiting is per client address, so behind a proxy all clients look like one address.</li><li>The master key sits unencrypted on disk (protected only by file permissions); anyone who can read it can mint devices.</li><li>A one-time pad and true hardware randomness were considered and rejected for this use; the operating system's random source is the deliberate choice.</li><li>The code has been tested only against itself (see <code>tests/</code>).</li></ul>
+<h2 id="reporting-a-problem">Reporting a problem</h2>
+<p>Please use GitHub's private vulnerability reporting for this repository if it is enabled, or open an issue describing the class of problem without a working exploit.</p>
+</article></main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../index.html">home</a> · <a href="../playground/">playground</a></footer>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js").catch(function(){});</script></body></html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Training Monitor v2.3</title>
+<link rel="stylesheet" href="static/dashboard.css">
+<link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<body>
+<div style="background:#2f6fdb;color:#fff;padding:.45rem 1rem;font:14px system-ui,sans-serif">Demo with <b>synthetic data</b>: every button works, nothing is real. <a style="color:#fff" href="../">&larr; home</a> · <a style="color:#fff" href="../playground/">playground</a> · <a style="color:#fff" href="../docs/HOW_TO_READ_THE_CHARTS.html">how to read this page</a></div>
+<div class="wrap" id="wrap">
+<header>
+  <h1>Training Monitor <span class="sub">v2.3 · trends · correlation · R² · confidence &amp; prediction bands</span></h1>
+  <span class="sub" id="upd">loading…</span>
+  <span class="sub">local only · no internet needed</span>
+  <button id="theme" type="button">theme</button>
+</header>
+<div class="seg" id="ranges" role="group" aria-label="Time range"></div>
+<div class="period" id="period"></div>
+<details class="custom"><summary>Customize</summary><div class="opts" id="custom"></div></details>
+<div id="banners"></div>
+<div class="cards" id="cards"></div>
+<div class="panel" id="panel-summary" style="margin-bottom:12px"><h2>This period</h2><p id="sum-sub"></p><div class="sumgrid" id="summary"></div></div>
+<div class="panel" id="panel-trend" style="margin-bottom:12px"><h2>Trends (least-squares line)</h2><p>Is each metric going up, down, or nowhere? Fitted for the selected period; change the fit window in Customize.</p><div id="trend"></div></div>
+<div class="panel" id="panel-corr" style="margin-bottom:12px"><h2>Correlation matrix (Pearson r)</h2><p>How strongly do two metrics move together during this period? Blue = they rise together, red = one rises as the other falls. Dim cells are not statistically significant. Click a cell to plot it.</p><div class="trendwrap" id="cmatrix"></div><div id="ctop"></div><div class="fine" id="cnote"></div></div>
+<div class="grid" style="margin-bottom:12px">
+  <div class="panel" id="panel-scatter"><h2>Scatter plot</h2><div class="pairsel" id="pairsel"></div><div class="sstats" id="sstats"></div><svg id="ch-scatter" viewBox="0 0 640 300"></svg></div>
+  <div class="panel" id="panel-roll"><h2>Rolling correlation</h2><p>Pearson r over a sliding window for the selected pair: does the relationship hold steady, or come and go?</p><div class="legend" id="lg-roll"></div><svg id="ch-roll" viewBox="0 0 640 250"></svg><div class="tip" id="tip-roll"></div></div>
+</div>
+<div class="panel" id="panel-reg" style="margin-bottom:12px"><h2>What explains the variation? (multiple regression, R²)</h2><p>Pick a metric and the others to explain it with. R² says what share of its ups and downs they account for; the out-of-sample figure says whether that would hold on time periods the fit has not seen.</p><div id="regsel"></div><div class="sstats" id="regstats"></div><div class="grid"><div><svg id="ch-regpred" viewBox="0 0 640 300"></svg></div><div class="trendwrap"><div id="regtab"></div><div id="regbars" style="margin-top:10px"></div></div></div><div class="fine" id="regnote"></div></div>
+<div class="grid">
+  <div class="panel" id="panel-loss"><h2>Training loss</h2><p>Per-step loss (averaged per bucket). Includes an irreducible ranking-entropy floor, so flat ≠ proven stalled.</p><div class="legend" id="lg-loss"></div><svg id="ch-loss" viewBox="0 0 640 250"></svg><div class="tip" id="tip-loss"></div></div>
+  <div class="panel" id="panel-eval"><h2>Validation regret (lower is better)</h2><p>Regret at a 30-aim budget on the 55-board validation set (4 games). Noisy: roughly ±0.12 between evals. Evaluated every 15 min.</p><div class="legend" id="lg-eval"></div><svg id="ch-eval" viewBox="0 0 640 250"></svg><div class="tip" id="tip-eval"></div></div>
+  <div class="panel" id="panel-rate"><h2>Training speed</h2><p>Steps per minute between heartbeats (drops mean throttling or load).</p><div class="legend" id="lg-rate"></div><svg id="ch-rate" viewBox="0 0 640 250"></svg><div class="tip" id="tip-rate"></div></div>
+  <div class="panel" id="panel-temp"><h2>CPU temperature</h2><p>Heartbeat temperature with hot and critical lines. Breaks in the line = the machine was off or suspended.</p><div class="legend" id="lg-temp"></div><svg id="ch-temp" viewBox="0 0 640 250"></svg><div class="tip" id="tip-temp"></div></div>
+  <div class="panel" id="panel-bat"><h2>Battery</h2><p>Charge level over time. A falling line with no training activity means the machine was suspended on battery.</p><div class="legend" id="lg-bat"></div><svg id="ch-bat" viewBox="0 0 640 250"></svg><div class="tip" id="tip-bat"></div></div>
+  <div class="panel" id="panel-mem"><h2>Memory available</h2><p>MB available (from the 5-minute sampler, if it is running).</p><div class="legend" id="lg-mem"></div><svg id="ch-mem" viewBox="0 0 640 250"></svg><div class="tip" id="tip-mem"></div></div>
+</div>
+<div class="panel" id="panel-gaps" style="margin-top:12px"><h2>Machine stops</h2><p>Gaps of more than 3 minutes in the heartbeat: the machine was off, suspended, or the trainer was stopped. Shown for the selected period.</p><div id="gaps"></div></div>
+<div class="panel" id="panel-cks" style="margin-top:12px"><h2>Checkpoints</h2><div id="cks"></div></div>
+</div>
+<script>window.NN_STATIC = true;</script>
+<script src="static/dashboard.js"></script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js").catch(function(){});</script>
+</body>
+</html>

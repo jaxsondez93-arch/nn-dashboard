@@ -1,0 +1,28 @@
+/* Shared styles for the landing page, the playground and the generated docs pages. Light by default, dark when the system asks for it. */
+:root { --bg:#f7f8fa; --card:#ffffff; --ink:#1b2430; --muted:#5b6675; --line:#e2e6ec; --accent:#2f6fdb; --accent2:#c0392b; --ok:#1a8f4d; --code:#eef1f6; }
+@media (prefers-color-scheme: dark) { :root { --bg:#0f141b; --card:#171e28; --ink:#e6ebf2; --muted:#9aa6b6; --line:#263040; --accent:#6aa0ff; --accent2:#ff7b6b; --ok:#4cc38a; --code:#1e2733; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+a { color:var(--accent); } img { max-width:100%; height:auto; }
+header.top { display:flex; flex-wrap:wrap; gap:.5rem 1.2rem; align-items:center; padding:.8rem 1rem; border-bottom:1px solid var(--line); background:var(--card); position:sticky; top:0; z-index:5; }
+header.top .brand { font-weight:700; color:var(--ink); text-decoration:none; } header.top nav { display:flex; flex-wrap:wrap; gap:.3rem 1rem; } header.top nav a { text-decoration:none; color:var(--muted); } header.top nav a:hover { color:var(--accent); }
+main { max-width:980px; margin:0 auto; padding:1.2rem 1rem 3rem; }
+.hero { text-align:center; padding:2.2rem 0 1rem; } .hero h1 { font-size:clamp(1.8rem,5vw,2.8rem); margin:.2rem 0; } .hero p { color:var(--muted); max-width:44rem; margin:.4rem auto 1.1rem; }
+.btns { display:flex; flex-wrap:wrap; gap:.6rem; justify-content:center; } .btn { display:inline-block; padding:.6rem 1.1rem; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); text-decoration:none; font-weight:600; }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; } .btn:hover { filter:brightness(1.06); }
+.shot { margin:1.4rem auto; border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,.12); }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1rem; margin:1.4rem 0; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1rem 1.1rem; } .card h3 { margin:.1rem 0 .4rem; font-size:1.05rem; } .card p { margin:.3rem 0; color:var(--muted); }
+.note { color:var(--muted); font-size:.92rem; }
+footer { text-align:center; color:var(--muted); padding:1.5rem 1rem 2.5rem; font-size:.92rem; }
+/* generated docs pages */
+article h1,article h2,article h3 { line-height:1.25; } article h2 { margin-top:2rem; border-bottom:1px solid var(--line); padding-bottom:.25rem; }
+article code { background:var(--code); padding:.1em .35em; border-radius:5px; font-size:.92em; } article pre { background:var(--code); padding:.8rem 1rem; border-radius:10px; overflow:auto; } article pre code { background:none; padding:0; }
+article blockquote { margin:1rem 0; padding:.2rem 1rem; border-left:4px solid var(--accent); background:var(--card); border-radius:0 8px 8px 0; color:var(--muted); }
+.table-wrap { overflow-x:auto; } table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.95rem; } th,td { border:1px solid var(--line); padding:.4rem .6rem; text-align:left; vertical-align:top; } th { background:var(--card); }
+/* playground */
+.lab { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1rem 1.1rem; margin:1.2rem 0; } .lab h2 { margin-top:0; }
+.controls { display:flex; flex-wrap:wrap; gap:.6rem 1.4rem; align-items:center; margin:.6rem 0; } .controls label { display:flex; gap:.5rem; align-items:center; color:var(--muted); } .controls output { min-width:3.2em; color:var(--ink); font-variant-numeric:tabular-nums; }
+canvas { width:100%; height:auto; background:var(--card); border:1px solid var(--line); border-radius:8px; display:block; }
+.readout { display:flex; flex-wrap:wrap; gap:.4rem 1.4rem; margin:.5rem 0; font-variant-numeric:tabular-nums; } .readout b { color:var(--accent2); }
+button.small { padding:.35rem .8rem; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; font:inherit; } button.small:hover { border-color:var(--accent); }

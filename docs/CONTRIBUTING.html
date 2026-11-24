@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Contributing · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<body><header class="top"><a class="brand" href="../index.html">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a><a href="../docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
+<main><article>
+<h1 id="contributing">Contributing</h1>
+<p>Small, friendly project. Ideas and fixes are welcome.</p>
+<ul><li>Keep it dependency-free: the server uses only the Python standard library.</li><li>Run the tests before sending anything: <code>python3 -B -m unittest discover -s tests</code>. They use synthetic data (<code>demo/make_demo_data.py</code>), never real logs.</li><li>Never commit personal data: usernames, hostnames, home paths, network addresses, tokens, keys, or real screenshots that show them. <code>.gitignore</code> already excludes secrets and data files.</li><li>Explanations aimed at non-experts are as welcome as code: see <a href="PLAIN_ENGLISH.html">docs/PLAIN_ENGLISH.md</a>.</li></ul>
+</article></main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../index.html">home</a> · <a href="../playground/">playground</a></footer>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js").catch(function(){});</script></body></html>

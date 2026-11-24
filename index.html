@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>nn-dashboard · watch a neural network train</title><meta name="description" content="A tiny offline dashboard for watching a model train, an interactive playground, and the honest story of what we learned.">
+<link rel="stylesheet" href="site.css"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><meta name="theme-color" content="#2f6fdb"></head>
+<body>
+<header class="top"><a class="brand" href="./">nn-dashboard</a><nav><a href="demo/">Live demo</a><a href="playground/">Playground</a><a href="docs/PLAIN_ENGLISH.html">In plain English</a><a href="docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
+<main>
+<section class="hero"><h1>Watch a neural network learn.<br>Then find out what it really learned.</h1>
+<p>A small, offline dashboard for long training runs, plus an interactive playground and an honest write-up: what worked, what only looked like it worked, and what we got wrong.</p>
+<div class="btns"><a class="btn primary" href="demo/">Open the live demo</a><a class="btn" href="playground/">Try the playground</a><a class="btn" href="docs/PLAIN_ENGLISH.html">Explain it to me</a></div>
+<div class="shot"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/demo_dark_desktop.png"><img src="docs/images/demo_light_desktop.png" alt="The dashboard showing training loss, speed, temperature and trend tables" loading="lazy"></picture></div>
+<p class="note">The demo runs on invented numbers so you can poke every button. You can also install this page as an app (use your browser's "Install" or "Add to Home Screen"); it then works offline.</p></section>
+<div class="grid">
+<div class="card"><h3>The dashboard</h3><p>Charts, trend lines, correlations, R&sup2; and confidence bands for a training run, in one page that needs no internet. Pick a window, customise it, click a cell to plot a pair.</p><p><a href="demo/">Open the demo &rarr;</a></p></div>
+<div class="card"><h3>The playground</h3><p>Three toys: what a correlation looks like, what the two kinds of bands mean, and why choosing which aims to test matters when testing is slow.</p><p><a href="playground/">Play &rarr;</a></p></div>
+<div class="card"><h3>In plain English</h3><p>No software background needed: a 60-second version, a glossary, a guided tour of the page and a pop-culture decoder.</p><p><a href="docs/PLAIN_ENGLISH.html">Read &rarr;</a></p></div>
+<div class="card"><h3>What we learned</h3><p>Lessons about long runs on one laptop, evaluation discipline, and the model itself, including the corrections.</p><p><a href="docs/LEARNINGS.html">Read &rarr;</a> · <a href="docs/RESULTS.html">Results &rarr;</a></p></div>
+<div class="card"><h3>The mathematics</h3><p>The proof project's claim ledger and audit (with its erratum), and the statistics behind every number, each with the calculation shown.</p><p><a href="docs/math/README.html">Read &rarr;</a></p></div>
+<div class="card"><h3>The story &amp; the code</h3><p>A build log of the dead ends, an architecture tour, 50+ tests, and a demo-data generator so you can run it yourself.</p><p><a href="docs/STORY.html">Story &rarr;</a> · <a href="docs/ARCHITECTURE.html">How it works &rarr;</a></p></div>
+</div></main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · MIT licensed · <a href="https://github.com/jaxsondez93-arch/nn-dashboard">source on GitHub</a><br>The login code is experimental and unaudited. Everything shown here is synthetic or simulator-measured.</footer>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});</script>
+</body></html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>How to read the dashboard · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<body><header class="top"><a class="brand" href="../index.html">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a><a href="../docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
+<main><article>
+<h1 id="how-to-read-the-dashboard">How to read the dashboard</h1>
+<p>No statistics background needed. Each section of the page, in the order you meet it. (The <a href="PLAIN_ENGLISH.html">guided tour</a> shows where everything is.)</p>
+<h2 id="the-status-cards">The status cards</h2>
+<ul><li><strong>Trainer</strong>: is it running, which step it is on, how fast (steps per minute), and how many times it restarted.</li><li><strong>Machine</strong>: temperature, clock speed, load and power. A hot chip slows itself down ("throttling"), which is why the page warns you.</li><li><strong>Latest checkpoint</strong>: how old the last saved copy is. A big number here with a "running" trainer means something is wrong.</li><li><strong>Stops ever seen</strong>: how many times the heartbeat went quiet for more than three minutes.</li></ul>
+<h2 id="the-charts">The charts</h2>
+<ul><li><strong>Training loss</strong> is the model's error on the examples it learns from. Down is good. A line that goes flat does <em>not</em> prove the model stopped learning: part of the loss can never go away (it is a floor), so look at the next chart too.</li><li><strong>Validation regret</strong> is the honest report card: how much damage the model gives up on games it was never trained on. Lower is better. The dashed lines are baselines (random, evenly spaced aims, a simple rule). If the model's line is not clearly below them, it is not adding much. This chart is noisy because it uses only 4 games.</li><li><strong>Training speed</strong> and <strong>CPU temperature</strong>: when the temperature climbs, speed usually drops. The red line at 100 degrees is the danger mark.</li><li><strong>Battery</strong> and <strong>Memory</strong>: a battery line that falls while nothing is training means the machine was asleep or off.</li><li><strong>Machine stops</strong>: every time it went quiet, for how long, and what the battery and temperature were just before.</li></ul>
+<h2 id="the-trend-table">The trend table</h2>
+<p>For each metric the page draws the best straight line through the points and tells you:</p>
+<ul><li><strong>slope</strong>: how fast it is going up or down, with a 95% interval ("the true slope is probably in here");</li><li><strong>verdict</strong>: "improving", "worsening" or "no detectable trend". That last one means the interval includes zero, not that nothing is happening;</li><li><strong>R-squared</strong>: how much of the wiggle the line explains (see below);</li><li><strong>calibration</strong>: how many points really fall inside the prediction band. If it is far below 95%, the band is too narrow for this data and you should trust it less.</li></ul>
+<p>Points that are neighbours in time resemble each other, which makes naive error bars far too confident. The page widens its intervals to account for that.</p>
+<h2 id="correlation">Correlation</h2>
+<p><img src="images/explain_correlation.png" alt="Correlation examples"></p>
+<p>Each cell of the matrix is a number between -1 and +1. Blue means the two things rise together, red means one rises as the other falls, and pale cells are not statistically significant. Careful: two things that both drift over time can look related even when they are not. The "detrended" and "changes" modes remove the drift so you can check.</p>
+<h2 id="r-squared">R-squared</h2>
+<p><img src="images/explain_r_squared.png" alt="R-squared examples"></p>
+<p>"R² = 0.9" reads as "other measurements account for about 90% of the ups and downs". The page also shows an <strong>out-of-sample</strong> R-squared: it fits on some stretches of time and predicts others it never saw. That is the honest number, and it can even be negative. <strong>Unique R²</strong> says how much a metric adds on its own, and <strong>VIF</strong> warns when two metrics are basically the same thing.</p>
+<h2 id="the-two-kinds-of-bands">The two kinds of bands</h2>
+<p><img src="images/explain_bands.png" alt="Bands"></p>
+<p>The narrow band says where the <em>true line</em> probably is. The wide band says where <em>new measurements</em> should land. They answer different questions, which is why the wide one is so much wider.</p>
+<h2 id="a-word-of-caution">A word of caution</h2>
+<p>Association is not cause. Load and speed move together in our data because the trainer's own work is part of the load. The page says so, and so should you.</p>
+</article></main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../index.html">home</a> · <a href="../playground/">playground</a></footer>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js").catch(function(){});</script></body></html>
