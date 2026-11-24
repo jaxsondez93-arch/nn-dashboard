@@ -19,6 +19,8 @@ Do not expose the dashboard to the internet. Reach it through a private network 
 
 ## Pairing and login (auth.py)
 
+> **Experimental and unaudited.** This auth code is home-made, has had no independent security review, and has no TLS of its own. Use it only behind a private network (Tailscale, WireGuard, SSH tunnel) and treat it as a convenience gate, not a hardened login.
+
 1. First run creates a 32-byte master key `pair.secret` (mode 0600 in a 0700 directory, `O_EXCL`). The server refuses to start if the file has the wrong mode, length or is all zeros.
 2. `python3 -B server.py --pair` on the machine prints a single-use pairing token (128 bits, 5-minute expiry; only its hash is stored).
 3. The phone POSTs `{"token": ...}` to `/auth/redeem` and receives its own device key, shown once. The master key never leaves the machine.
