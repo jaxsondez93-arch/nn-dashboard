@@ -1,0 +1,183 @@
+# Reference copy for reading (see README.md in this folder). It cannot run on its own: it imports helper modules (reconstruct_toi, compute_angle_windows, test_la_lb_sim)
+# that are not part of this repository. Set BALLZ_PROOF_MODULES to a folder containing them, and BALLZ_PROOF_OUT for where result files are written.
+import json
+import os
+import math
+import sys
+
+sys.path.insert(0, os.environ.get("BALLZ_PROOF_MODULES", "."))
+from reconstruct_toi import PolygonProxy, build_c2_poly, t9_raw, t11_raw, t11_hx, t11_hy
+from compute_angle_windows import BLOCKS_SEED3000
+
+proxyA = PolygonProxy(build_c2_poly(t9_raw, 50.0, 50.0, 0.5, 0.5))
+proxyB = PolygonProxy(build_c2_poly(t11_raw, 120.0, 120.0, t11_hx, t11_hy))
+
+R_A_max = max(math.hypot(vx, vy) for vx, vy in proxyA.m_vertices)
+r_A = 0.005
+r_B = 0.005
+s_target = 0.0075
+tol_toi = 0.00125
+thresh_toi = s_target + tol_toi  # 0.00875 m
+
+th_lo_deg = 85.29666639842317
+th_hi_deg = 94.94268989444233
+th_lo = math.radians(th_lo_deg)
+th_hi = math.radians(th_hi_deg)
+
+dt = 1.3 / 60.0
+g = 10.0
+F = 550.0
+area = sum(
+    0.5 * (proxyA.m_vertices[i][0] * proxyA.m_vertices[(i + 1) % 8][1] -
+           proxyA.m_vertices[i][1] * proxyA.m_vertices[(i + 1) % 8][0])
+    for i in range(8)
+)
+v0 = (dt / area) * F
+min_sin = min(math.sin(th_lo), math.sin(th_hi))
+max_sin = 1.0
+max_abs_cos = max(abs(math.cos(th_lo)), abs(math.cos(th_hi)))
+
+def eval_axis(uid, k, al, th, kind, idx):
+    b = next(x for x in BLOCKS_SEED3000 if x["uid"] == uid)
+    bx, by = b["bx"], b["by"]
+    xk = 7.2 + (k - 1 + al) * v0 * dt * math.cos(th)
+    yk = 1.8 + (k - 1 + al) * v0 * dt * math.sin(th) + (0.5 * (k - 1) * k + al * k) * g * dt * dt
+    c, s = math.cos(th), math.sin(th)
+    pA = [(xk + c * vx - s * vy, yk + s * vx + c * vy) for vx, vy in proxyA.m_vertices]
+    pB = [(bx + vx, by + vy) for vx, vy in proxyB.m_vertices]
+    if kind == "B":
+        nx, ny = proxyB.m_normals[idx]
+        vBx, vBy = pB[idx]
+        return min((px - vBx) * nx + (py - vBy) * ny for px, py in pA)
+    else:
+        nlx, nly = proxyA.m_normals[idx]
+        nx, ny = c * nlx - s * nly, s * nlx + c * nly
+        vAx, vAy = pA[idx]
+        return min((px - vAx) * nx + (py - vAy) * ny for px, py in pB)
+
+def exact_min_max2(uid, k, th, ax1, ax2):
+    s1_0 = eval_axis(uid, k, 0.0, th, *ax1)
+    s1_1 = eval_axis(uid, k, 1.0, th, *ax1)
+    s2_0 = eval_axis(uid, k, 0.0, th, *ax2)
+    s2_1 = eval_axis(uid, k, 1.0, th, *ax2)
+    d0 = s1_0 - s2_0
+    d1 = s1_1 - s2_1
+    candidates = [(0.0, max(s1_0, s2_0)), (1.0, max(s1_1, s2_1))]
+    if d0 * d1 < 0:
+        al_star = d0 / (d0 - d1)
+        val_star = s1_0 + al_star * (s1_1 - s1_0)
+        candidates.append((al_star, val_star))
+    best_al, best_val = min(candidates, key=lambda x: x[1])
+    return {
+        "min_val": best_val,
+        "alpha_star": best_al,
+        "ax1": f"{ax1[0]}{ax1[1]}",
+        "ax2": f"{ax2[0]}{ax2[1]}",
+        "s1_0": s1_0, "s1_1": s1_1,
+        "s2_0": s2_0, "s2_1": s2_1
+    }
+
+# Analytical derivative bounds for B6, B7 on UID 24 (k in 28..34) and B2, B3 on UID 22 (k in 26..33)
+# Note: B6, B7 have |n_x| = 7/sqrt(58) = 0.91914503, |n_y| = 3/sqrt(58) = 0.39391930
+nx_steep = 7.0 / math.sqrt(58.0)
+ny_steep = 3.0 / math.sqrt(58.0)
+
+results = {"uid24": {}, "uid22": {}}
+
+# Vertical step-range bounds for UID 24 (by = 15.76, skin [14.555, 16.965])
+y27_max = 1.8 + 27 * v0 * dt * max_sin + 0.5 * 27 * 28 * g * dt * dt + R_A_max + r_A
+y34_end_min = 1.8 + 34 * v0 * dt * min_sin + 0.5 * 34 * 35 * g * dt * dt - R_A_max - r_A
+results["uid24"]["vertical_exclusion"] = {
+    "k_le_27_max_y": y27_max,
+    "block_top_skin": 15.76 - 1.205,
+    "k_le_27_clearance": (15.76 - 1.205) - y27_max,
+    "k_ge_35_min_y": y34_end_min,
+    "block_bottom_skin": 15.76 + 1.205,
+    "k_ge_35_clearance": y34_end_min - (15.76 + 1.205),
+    "overlap_steps": list(range(28, 35))
+}
+
+# Vertical step-range bounds for UID 22 (by = 14.98, skin [13.775, 16.185])
+y25_max = 1.8 + 25 * v0 * dt * max_sin + 0.5 * 25 * 26 * g * dt * dt + R_A_max + r_A
+y33_end_min = 1.8 + 33 * v0 * dt * min_sin + 0.5 * 33 * 34 * g * dt * dt - R_A_max - r_A
+results["uid22"]["vertical_exclusion"] = {
+    "k_le_25_max_y": y25_max,
+    "block_top_skin": 14.98 - 1.205,
+    "k_le_25_clearance": (14.98 - 1.205) - y25_max,
+    "k_ge_34_min_y": y33_end_min,
+    "block_bottom_skin": 14.98 + 1.205,
+    "k_ge_34_clearance": y33_end_min - (14.98 + 1.205),
+    "overlap_steps": list(range(26, 34))
+}
+
+# Step-by-step exact closed-form alpha-minima and analytical theta-derivative bounds
+results["uid24"]["steps"] = {}
+for k in range(28, 35):
+    ax1 = ("A", 1) if k == 31 else ("B", 7)
+    ax2 = ("B", 6)
+    mm = exact_min_max2(24, k, th_lo, ax1, ax2)
+    # Analytical lower bound on d(sep_B6)/dtheta and d(sep_B7)/dtheta on step k:
+    dx_min = (k - 1) * v0 * dt * min_sin
+    dy_max = k * v0 * dt * max_abs_cos
+    dsep_B_min = nx_steep * dx_min - ny_steep * dy_max - R_A_max
+    # Analytical lower bound on d(sep_A1)/dtheta on step k across all block vertices m=0..7:
+    # (-dx_k/dtheta)*n_{A1,x}(theta) - |dy_k/dtheta|*|n_{A1,y}(theta)| + min_{m,alpha,theta} [(b_m - x_k) . n_{A1}^perp(theta)]
+    nlx, nly = proxyA.m_normals[1]
+    nx_A1_min = min(math.cos(th) * nlx - math.sin(th) * nly for th in [th_lo, math.pi / 2, th_hi])
+    ny_A1_max = max(abs(math.sin(th) * nlx + math.cos(th) * nly) for th in [th_lo, math.pi / 2, th_hi])
+    b24 = next(x for x in BLOCKS_SEED3000 if x["uid"] == 24)
+    bx, by = b24["bx"], b24["by"]
+    # Bound lever arm term (b_m - x_k) . (-ny_A1, nx_A1) over x_k in [x_k_min, x_k_max], y_k in [y_k_min, y_k_max]
+    xk_min = 7.2 + k * v0 * dt * math.cos(th_hi)
+    xk_max = 7.2 + (k - 1) * v0 * dt * math.cos(th_lo)
+    yk_min = 1.8 + (k - 1) * v0 * dt * min_sin + 0.5 * (k - 1) * k * g * dt * dt
+    yk_max = 1.8 + k * v0 * dt * max_sin + 0.5 * k * (k + 1) * g * dt * dt
+    rot_term_min = 999.0
+    for vx, vy in proxyB.m_vertices:
+        bmx, bmy = bx + vx, by + vy
+        for xk_c in [xk_min, xk_max]:
+            for yk_c in [yk_min, yk_max]:
+                for th_c in [th_lo, math.pi / 2, th_hi]:
+                    nx_c = math.cos(th_c) * nlx - math.sin(th_c) * nly
+                    ny_c = math.sin(th_c) * nlx + math.cos(th_c) * nly
+                    rot_term_min = min(rot_term_min, (bmx - xk_c) * (-ny_c) + (bmy - yk_c) * nx_c)
+    dsep_A1_min = dx_min * nx_A1_min - dy_max * ny_A1_max + rot_term_min
+    mm["dsep_B6_B7_dtheta_lb"] = dsep_B_min
+    mm["dsep_A1_dtheta_lb"] = dsep_A1_min
+    results["uid24"]["steps"][str(k)] = mm
+
+results["uid22"]["steps"] = {}
+for k in range(26, 34):
+    ax1 = ("A", 4) if k == 29 else ("B", 2)
+    ax2 = ("B", 3)
+    mm = exact_min_max2(22, k, th_hi, ax1, ax2)
+    dx_min = (k - 1) * v0 * dt * min_sin
+    dy_max = k * v0 * dt * max_abs_cos
+    dsep_B_max = -nx_steep * dx_min + ny_steep * dy_max + R_A_max
+    nlx, nly = proxyA.m_normals[4]
+    nx_A4_max = max(math.cos(th) * nlx - math.sin(th) * nly for th in [th_lo, math.pi / 2, th_hi])  # negative
+    ny_A4_max = max(abs(math.sin(th) * nlx + math.cos(th) * nly) for th in [th_lo, math.pi / 2, th_hi])
+    b22 = next(x for x in BLOCKS_SEED3000 if x["uid"] == 22)
+    bx, by = b22["bx"], b22["by"]
+    xk_min = 7.2 + k * v0 * dt * math.cos(th_hi)
+    xk_max = 7.2 + (k - 1) * v0 * dt * math.cos(th_lo)
+    yk_min = 1.8 + (k - 1) * v0 * dt * min_sin + 0.5 * (k - 1) * k * g * dt * dt
+    yk_max = 1.8 + k * v0 * dt * max_sin + 0.5 * k * (k + 1) * g * dt * dt
+    rot_term_max = -999.0
+    for vx, vy in proxyB.m_vertices:
+        bmx, bmy = bx + vx, by + vy
+        for xk_c in [xk_min, xk_max]:
+            for yk_c in [yk_min, yk_max]:
+                for th_c in [th_lo, math.pi / 2, th_hi]:
+                    nx_c = math.cos(th_c) * nlx - math.sin(th_c) * nly
+                    ny_c = math.sin(th_c) * nlx + math.cos(th_c) * nly
+                    rot_term_max = max(rot_term_max, (bmx - xk_c) * (-ny_c) + (bmy - yk_c) * nx_c)
+    dsep_A4_max = dx_min * nx_A4_max + dy_max * ny_A4_max + rot_term_max
+    mm["dsep_B2_B3_dtheta_ub"] = dsep_B_max
+    mm["dsep_A4_dtheta_ub"] = dsep_A4_max
+    results["uid22"]["steps"][str(k)] = mm
+
+with open(os.path.join(os.environ.get("BALLZ_PROOF_OUT", "."), "corridor_level_a_proof.json"), "w") as f:
+    json.dump(results, f, indent=2)
+
+print(json.dumps(results, indent=2))

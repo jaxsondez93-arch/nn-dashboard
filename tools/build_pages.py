@@ -13,12 +13,14 @@ from analysis import RANGES
 
 NAV = '<header class="top"><a class="brand" href="{r}index.html">nn-dashboard</a><nav><a href="{r}demo/">Live demo</a><a href="{r}playground/">Playground</a><a href="{r}docs/PLAIN_ENGLISH.html">In plain English</a><a href="{r}docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>'
 PAGE = '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} · nn-dashboard</title><link rel="stylesheet" href="{r}site.css"><link rel="manifest" href="{r}manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>\n<body>{nav}\n<main><article>\n{body}\n</article></main>\n<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="{r}index.html">home</a> · <a href="{r}playground/">playground</a></footer>\n<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("{r}sw.js").catch(function(){{}});</script></body></html>\n'
-DOCS = ["README.md", "SECURITY.md", "CONTRIBUTING.md"] + sorted(f"docs/{f}" for f in os.listdir(os.path.join(ROOT, "docs")) if f.endswith(".md")) + sorted(f"docs/math/{f}" for f in os.listdir(os.path.join(ROOT, "docs/math")) if f.endswith(".md"))
+DOCS = ["README.md", "SECURITY.md", "CONTRIBUTING.md"] + sorted(f"docs/{f}" for f in os.listdir(os.path.join(ROOT, "docs")) if f.endswith(".md")) + sorted(f"docs/math/{f}" for f in os.listdir(os.path.join(ROOT, "docs/math")) if f.endswith(".md")) + ["docs/math/proof_code/README.md"]
+CODE = sorted(f"docs/math/proof_code/{f}" for f in os.listdir(os.path.join(ROOT, "docs/math/proof_code")) if f.endswith(".py"))
 
 
 def target(src):                                       # repo path of a markdown/image file -> path inside the site
     if src in ("README.md", "SECURITY.md", "CONTRIBUTING.md"): return "docs/" + src[:-3] + ".html"
     if src.startswith("docs/images/"): return src
+    if src in CODE: return src + ".html"          # source files get a plain "view source" page
     if src.endswith(".md"): return src[:-3] + ".html"
     return None
 
@@ -37,6 +39,10 @@ def build(out):
         body = md.to_html(text, rewrite); first = text.split("\n", 1)[0].lstrip("# ").strip() or src
         os.makedirs(os.path.dirname(os.path.join(out, dst)), exist_ok=True)
         open(os.path.join(out, dst), "w", encoding="utf-8").write(PAGE.format(title=html.escape(first), r=root_rel, nav=NAV.format(r=root_rel), body=body))
+    for src in CODE:                                  # view-source pages for the reference code
+        dst = target(src); r = "../" * dst.count("/"); code = open(os.path.join(ROOT, src), encoding="utf-8").read()
+        body = f'<h1>{html.escape(os.path.basename(src))}</h1><p><a href="README.html">&larr; about these files</a></p><pre><code>{html.escape(code)}</code></pre>'
+        open(os.path.join(out, dst), "w", encoding="utf-8").write(PAGE.format(title=html.escape(os.path.basename(src)), r=r, nav=NAV.format(r=r), body=body))
     shutil.copytree(os.path.join(ROOT, "docs/images"), os.path.join(out, "docs/images"))
     # ---- demo: the real dashboard page on static JSON
     from settings import settings
