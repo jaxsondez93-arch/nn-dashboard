@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Lend a phone · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<body>
+<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="./">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a><a href="../docs/README.html">Docs</a></nav></header>
+<main>
+<h1>Lend your processor</h1>
+<p>Run a small, <b>synthetic</b> experiment in your browser, and, only if you choose, share the answer. Your device does the arithmetic; <b>nothing leaves it unless you tap Share</b>.</p>
+
+<section class="lab" id="safe"><h2>Is it safe? What exactly happens?</h2>
+<ul>
+<li><b>It only runs while this page is open.</b> No install, no account, no permissions, no camera, microphone, location or files. It stops if you leave, lock the screen or press Stop.</li>
+<li><b>The page cannot send data anywhere.</b> Its security policy blocks every connection except to this site itself. The only way anything leaves your device is you tapping <i>Share</i>, which opens a public GitHub page that <i>you</i> then submit (or you copy the text yourself).</li>
+<li><b>What a result contains:</b> a work-unit number, four whole numbers (the experiment's totals) and a checksum. No device details, no name, no location.</li>
+<li><b>Nobody has to trust you or me.</b> Every unit is deterministic: anyone can recompute it and check it. Wrong or made-up results are rejected automatically.</li>
+<li><b>The cost is battery and warmth.</b> The default is Gentle (about a quarter of one core), the session stops after 5 minutes, and it pauses when this tab is hidden or the battery is low (where your browser reports it). If your phone feels warm, press Pause.</li>
+<li><b>What it is for:</b> a made-up version of the aim-search game: <i>how much does a decent hunch help, depending on how many tests you can afford and how good the hunch is?</i> It does <b>not</b> run the real game and is not a serious research workload. Read <a href="../docs/CONTRIBUTE_COMPUTE.html">the honest details</a>.</li>
+</ul></section>
+
+<section class="lab" id="run"><h2>Run it</h2>
+<div class="controls"><label><input type="checkbox" id="consent"> I understand this uses my device's processor and battery while this page is open.</label></div>
+<div class="controls"><label>intensity <select id="duty"><option value="0.25" selected>Gentle (25%)</option><option value="0.5">Medium (50%)</option><option value="1">Hard (100%, gets warm)</option></select></label>
+<label>stop after <select id="cap"><option value="1">1 minute</option><option value="5" selected>5 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label></div>
+<div class="controls"><button class="small" id="start" disabled>Start</button> <button class="small" id="pause" disabled>Pause</button> <button class="small" id="stop" disabled>Stop</button></div>
+<progress id="bar" value="0" max="100" style="width:100%;height:1.1rem"></progress>
+<div class="readout" id="status">Tick the box to begin.</div>
+<div class="readout" id="stats"></div></section>
+
+<section class="lab" id="mine"><h2>Your finished units</h2><p class="note" id="mine-note">None yet. Each finished unit shows its result here; nothing is shared until you choose.</p><div id="list"></div></section>
+
+<section class="lab" id="community"><h2>What everyone has found so far</h2><p class="note" id="community-note">Loading...</p>
+<canvas id="heat" width="720" height="330" aria-label="Heat map of the average regret of the hunch strategy by budget and hunch quality"></canvas></section>
+</main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/CONTRIBUTE_COMPUTE.html">how it works</a> · <a href="https://github.com/jaxsondez93-arch/nn-dashboard">source</a></footer>
+<script src="core.js"></script><script src="contribute.js"></script><script src="../register-sw.js"></script>
+</body></html>
