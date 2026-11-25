@@ -1,6 +1,8 @@
 /* Shared styles for the landing page, the playground and the generated docs pages. Light by default, dark when the system asks for it. */
 :root { --bg:#f7f8fa; --card:#ffffff; --ink:#1b2430; --muted:#5b6675; --line:#e2e6ec; --accent:#2f6fdb; --accent2:#c0392b; --ok:#1a8f4d; --code:#eef1f6; }
-@media (prefers-color-scheme: dark) { :root { --bg:#0f141b; --card:#171e28; --ink:#e6ebf2; --muted:#9aa6b6; --line:#263040; --accent:#6aa0ff; --accent2:#ff7b6b; --ok:#4cc38a; --code:#1e2733; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f141b; --card:#171e28; --ink:#e6ebf2; --muted:#9aa6b6; --line:#263040; --accent:#6aa0ff; --accent2:#ff7b6b; --ok:#4cc38a; --code:#1e2733; } }
+:root[data-theme="dark"] { --bg:#0f141b; --card:#171e28; --ink:#e6ebf2; --muted:#9aa6b6; --line:#263040; --accent:#6aa0ff; --accent2:#ff7b6b; --ok:#4cc38a; --code:#1e2733; }
+:root[data-theme="light"] { color-scheme:light; } :root[data-theme="dark"] { color-scheme:dark; }
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
 a { color:var(--accent); } img { max-width:100%; height:auto; }
@@ -22,6 +24,7 @@ article blockquote { margin:1rem 0; padding:.2rem 1rem; border-left:4px solid va
 .table-wrap { overflow-x:auto; } table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.95rem; } th,td { border:1px solid var(--line); padding:.4rem .6rem; text-align:left; vertical-align:top; } th { background:var(--card); }
 /* playground */
 .lab { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1rem 1.1rem; margin:1.2rem 0; } .lab h2 { margin-top:0; }
+.controls select { max-width:100%; min-width:0; text-overflow:ellipsis; } .controls label { max-width:100%; min-width:0; }
 .controls { display:flex; flex-wrap:wrap; gap:.6rem 1.4rem; align-items:center; margin:.6rem 0; } .controls label { display:flex; gap:.5rem; align-items:center; color:var(--muted); } .controls output { min-width:3.2em; color:var(--ink); font-variant-numeric:tabular-nums; }
 canvas { width:100%; height:auto; background:var(--card); border:1px solid var(--line); border-radius:8px; display:block; }
 .readout { display:flex; flex-wrap:wrap; gap:.4rem 1.4rem; margin:.5rem 0; font-variant-numeric:tabular-nums; } .readout b { color:var(--accent2); }

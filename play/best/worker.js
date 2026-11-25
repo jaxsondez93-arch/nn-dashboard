@@ -9,7 +9,7 @@ const ready = Promise.all([fetch("engine/engine_constants.json").then((r) => r.j
 ready.then(() => postMessage({ type: "ready" }), (e) => postMessage({ type: "error", message: String(e) }));
 onmessage = async (e) => {
   if (e.data.cmd !== "choose") return;
-  try { const R = await ready, t0 = performance.now(), res = NNSearch.chooseAim(R.sim, R.scorer, R.pixels, e.data.board, R.cfg, (n, of) => postMessage({ type: "progress", id: e.data.id, n, of }));
+  try { const R = await ready, t0 = performance.now(), res = NNSearch.chooseAim(R.sim, R.scorer, R.pixels, e.data.board, R.cfg, (n, of, info) => postMessage({ type: "progress", id: e.data.id, n, of, info }));
     res.think_ms = Math.round(performance.now() - t0); postMessage({ type: "choice", id: e.data.id, result: res }); }
   catch (err) { postMessage({ type: "error", id: e.data.id, message: String(err && err.stack || err) }); }
 };
