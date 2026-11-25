@@ -8,18 +8,19 @@ The project has 896 recorded training boards. On each, only about 98 of the 781 
 ## What the visitor agrees to
 The box says it plainly: the device is used to compute training data for the neural network aim model; it uses battery and warms up while the page is open; results are sent automatically; the visitor is not shown results and cannot edit them in the page; it resumes on later visits until unticked.
 - It runs only while the page is open and visible, uses about a third of one processor core, pauses when the battery is below 30% and not charging (where the browser reports it), and stops after 30 minutes per visit. Unticking stops it.
-- Sent: a task number and two numbers per shot. No name, account, device details or location. The receiver is a Google script, so Google sees the visitor's internet address.
+- Sent: a task number and two numbers per shot. No name, account, device details or location. The relay (ntfy.sh) sees the visitor's internet address.
 - **Honest limit:** nothing running in someone's browser can be hidden from that person. A technical visitor can inspect or alter what their own device sends. That is why results are **checked by recomputation**, not trusted.
 - If no collector is configured, the box is disabled and no device is used.
 
-## Switching collection on (once, about five minutes)
-The site has no server, so results need somewhere to arrive. A free Google script does it:
-1. Create a new Google Sheet (go to `sheets.new`).
-2. In the sheet: **Extensions → Apps Script**. Replace the code with the contents of [`collector/google-apps-script.gs`](https://github.com/jaxsondez93-arch/nn-dashboard) and save.
-3. **Deploy → New deployment → Web app**. *Execute as*: Me. *Who has access*: Anyone. Deploy and approve the permission request.
-4. Copy the web app address (it starts with `https://script.google.com/macros/s/` and ends in `/exec`) into `web/contribute/collector.json` as `{ "endpoint": "..." }`, then rebuild and publish the site.
-
-To switch it off, empty the address and publish again, or delete the deployment in Apps Script. Anyone who learns the address can post to it, which is another reason everything is checked.
+## How results arrive
+The site has no server, so results travel through **[ntfy.sh](https://ntfy.sh)**, a free public message relay that needs no account. The page posts small batches to one channel (named in `web/contribute/collector.json`); a collector on the owner's computer picks them up:
+```
+python3 tools/collect.py web/contribute/collector.json results.jsonl      # polls and appends new results
+```
+- The relay keeps messages for only about 12 hours, so the collector should be running (or be run) within that time.
+- The channel name is visible in the site's files, so it is **not a secret**: anyone could read the numbers or post junk. Nothing private is in them, and every result is checked by recomputation.
+- The relay sees visitors' internet addresses. It limits how many messages one address may send per day; the page batches results to stay well within that.
+- To switch collection off, set the address to an empty string and publish again. A Google Apps Script receiver (`collector/google-apps-script.gs`) is an alternative if the owner prefers it: deploy it as a web app and put its address in the same file.
 
 ## Using the results
 ```

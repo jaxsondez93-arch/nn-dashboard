@@ -22,17 +22,28 @@ class Page(unittest.TestCase):
         for bad in ('id="list"', "Copy JSON", "Download them", "Submit all"): self.assertNotIn(bad, html + js)
 
     def test_strict_policy_and_no_inline_script(self):
-        html = read(C, "index.html"); self.assertIn("default-src 'none'", html); self.assertIn("connect-src 'self' https://script.google.com https://script.googleusercontent.com", html)
+        html = read(C, "index.html"); self.assertIn("default-src 'none'", html); self.assertIn("connect-src 'self' https://ntfy.sh https://script.google.com https://script.googleusercontent.com", html)
         self.assertEqual(re.findall(r"<script(?![^>]*\bsrc=)[^>]*>", html), [])
 
-    def test_results_can_only_go_to_a_google_script_and_nothing_runs_without_one(self):
-        js = read(C, "contribute.js"); self.assertIn(r"/^https:\/\/script\.google\.com\//.test", js); self.assertIn('$("consent").disabled = true', js)
+    def test_results_can_only_go_to_the_allowed_receivers_and_nothing_runs_without_one(self):
+        js = read(C, "contribute.js"); self.assertIn(r"ntfy\.sh\/[A-Za-z0-9_-]{10,}$|script\.google\.com", js); self.assertIn('$("consent").disabled = true', js)
+        self.assertRegex(json.loads(read(C, "collector.json"))["endpoint"], r"^(https://ntfy\.sh/[A-Za-z0-9_-]{10,}|https://script\.google\.com/.*|)$")
+        self.assertIn("ntfy.sh", read(C, "index.html"), "the page must name the relay the results go through")
         self.assertEqual(json.loads(read(C, "collector.json")).keys(), {"endpoint"})
 
     def test_boards_file_is_training_data_shaped(self):
         d = json.loads(read(C, "boards.json")); self.assertEqual(len(d["boards"]), 896)
         for b in d["boards"][:50]: self.assertEqual(set(b), {"b", "p", "n", "t", "done"}); self.assertTrue(all(len(x) == 4 for x in b["b"]))
         self.assertNotRegex(read(C, "boards.json"), r"events\.jsonl|night_")
+
+
+class Collector(unittest.TestCase):
+    def test_only_well_formed_results_are_kept(self):
+        sys.path.insert(0, os.path.join(ROOT, "tools")); import collect
+        ok = {"u": 3, "d": [1, 2], "m": [100, None]}
+        msg = json.dumps({"v": 3, "results": [ok, {"u": -1, "d": [1], "m": [1]}, {"u": 1, "d": [1, 2], "m": [1]}, {"u": 1, "d": ["x"], "m": [1]}, "junk"], "extra": 1})
+        self.assertEqual(collect.results_in(msg), [ok])
+        for bad in ("", "not json", "[]", json.dumps({"v": 2, "results": [ok]}), json.dumps({"v": 3, "results": "x"})): self.assertEqual(collect.results_in(bad), [])
 
 
 @unittest.skipUnless(NODE, "node not installed")
