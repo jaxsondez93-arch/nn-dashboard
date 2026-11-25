@@ -50,14 +50,14 @@ function say(s) { $("state").textContent = s; }
 async function loop(id) {
   say("starting"); let inGame = false, t = 0;
   while (running && id === loopId) {
-    await sleep(100); const layout = layoutName();
+    await sleep(100); if (document.hidden) continue; const layout = layoutName();     // the game suspends itself while the page is hidden
     if (layout !== "Game") {
       if (inGame) { endGame(layout); inGame = false; }
       if (layout) { await tapAt(PLAY[0], PLAY[1], 40); await sleep(300); } continue;     // press Play until the game screen appears
     }
     const snap = snapshot(); if (!settled(snap)) continue;
-    if (!inGame) { inGame = true; cur = { n: games.length + 1, turns: [], t0: Date.now() }; t = 0; }
-    const strategy = $("strategy").value; if (strategy === "best" && !botReady) { say("loading the best bot"); continue; }
+    if (!inGame) { inGame = true; cur = { n: games.length + 1, turns: [], t0: Date.now(), strategy: $("strategy").value }; t = 0; }     // the strategy is locked for the whole game
+    const strategy = cur.strategy; if (strategy === "best" && !botReady) { say("loading the best bot"); continue; }
     t++; say(`game ${cur.n}, turn ${t}`); let pick;
     if (strategy === "best") {
       try { const r = await bestChoice(boardFor(snap, t)); pick = { arm: r.guard_changed ? "best+guard" : "best", target: null, index: r.index, pixel: r.pixel, predicted: r.predicted, think_s: +(r.think_ms / 1000).toFixed(1), sims: r.sims, predicted_losing: r.losing }; }
@@ -80,7 +80,7 @@ async function loop(id) {
   say(running ? "stopped" : "paused");
 }
 function record(rec) { allTurns.push(Object.assign({ game: cur.n }, rec)); render(); }
-function endGame(layout) { if (!cur) return; games.push({ game: cur.n, turns: cur.turns.length, damage: cur.turns.reduce((a, r) => a + (r.damage || 0), 0), strategy: $("strategy").value, secs: Math.round((Date.now() - cur.t0) / 1000), ended_on: layout }); cur = null; render(); }
+function endGame(layout) { if (!cur) return; games.push({ game: cur.n, turns: cur.turns.length, damage: cur.turns.reduce((a, r) => a + (r.damage || 0), 0), strategy: cur.strategy, secs: Math.round((Date.now() - cur.t0) / 1000), ended_on: layout }); cur = null; render(); }
 
 /* ---------- screen and telemetry ---------- */
 function render() {

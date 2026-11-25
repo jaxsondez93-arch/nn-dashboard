@@ -23,7 +23,7 @@ class Site(unittest.TestCase):
                 if not f.endswith(".html"): continue
                 text = open(os.path.join(dp, f), encoding="utf-8").read()
                 for u in re.findall(r'(?:href|src)="([^"]+)"', text):
-                    if u.startswith(("http", "#", "mailto:", "data:")) or u.startswith("game/"): continue        # play/game/ is optional (added only when NN_GAME_DIR is set)
+                    if u.startswith(("http", "#", "mailto:", "data:")) or u.startswith(("game/", "../play/game/")): continue        # play/game/ is optional (added only when NN_GAME_DIR is set)
                     path = os.path.normpath(os.path.join(dp, u.split("#")[0].split("?")[0]))
                     if u.split("#")[0] and not os.path.exists(path): bad.append((os.path.relpath(os.path.join(dp, f), self.out), u))
         self.assertEqual(bad, [])

@@ -11,7 +11,7 @@ sys.path.insert(0, ROOT); sys.path.insert(0, os.path.join(ROOT, "tools")); sys.p
 import md, make_demo_data
 from analysis import RANGES
 
-NAV = '<header class="top"><a class="brand" href="{r}index.html">nn-dashboard</a><nav><a href="{r}demo/">Live demo</a><a href="{r}playground/">Playground</a><a href="{r}play/">Watch the bot play</a><a href="{r}contribute/">Lend your processor</a><a href="{r}docs/PLAIN_ENGLISH.html">In plain English</a><a href="{r}docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>'
+NAV = '<header class="top"><a class="brand" href="{r}index.html">nn-dashboard</a><nav><a href="{r}demo/">Live demo</a><a href="{r}playground/">Playground</a><a href="{r}play/">Watch the bot play</a><a href="{r}yourself/">Play it yourself</a><a href="{r}contribute/">Lend your processor</a><a href="{r}docs/PLAIN_ENGLISH.html">In plain English</a><a href="{r}docs/README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>'
 PAGE = '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} · nn-dashboard</title><link rel="stylesheet" href="{r}site.css"><link rel="manifest" href="{r}manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>\n<body>{nav}\n<main><article>\n{body}\n</article></main>\n<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="{r}index.html">home</a> · <a href="{r}playground/">playground</a></footer>\n<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("{r}sw.js").catch(function(){{}});</script></body></html>\n'
 DOCS = ["README.md", "SECURITY.md", "CONTRIBUTING.md"] + sorted(f"docs/{f}" for f in os.listdir(os.path.join(ROOT, "docs")) if f.endswith(".md")) + sorted(f"docs/math/{f}" for f in os.listdir(os.path.join(ROOT, "docs/math")) if f.endswith(".md")) + ["docs/math/proof_code/README.md"]
 CODE = sorted(f"docs/math/proof_code/{f}" for f in os.listdir(os.path.join(ROOT, "docs/math/proof_code")) if f.endswith(".py"))
@@ -93,6 +93,7 @@ def build(out):
     shutil.copytree(os.path.join(ROOT, "web/playground"), out + "/playground")
     shutil.copytree(os.path.join(ROOT, "web/contribute"), out + "/contribute")
     shutil.copytree(os.path.join(ROOT, "web/play"), out + "/play")
+    shutil.copytree(os.path.join(ROOT, "web/yourself"), out + "/yourself")
     add_game(out)
     add_engine(out)
     for f in ("index.html", "site.css", "manifest.webmanifest", "register-sw.js"): shutil.copy(os.path.join(ROOT, "web", f), os.path.join(out, f))
@@ -108,7 +109,7 @@ def build(out):
     except ImportError:
         for size in (192, 512): open(f"{out}/icon-{size}.png", "wb").write(b"")
     # ---- service worker (version + file list), .nojekyll
-    core = ["./", "./index.html", "./site.css", "./icon-192.png", "./demo/", "./demo/index.html", "./demo/static/dashboard.css", "./demo/static/dashboard.js", "./playground/", "./playground/index.html", "./playground/playground.js", "./contribute/", "./contribute/index.html", "./contribute/core.js", "./contribute/worker.js", "./contribute/contribute.js", "./contribute/phase_diagram.json", "./register-sw.js", "./play/", "./play/index.html", "./play/bot.js", "./play/driver.js", "./play/pixels781.json", "./play/best/worker.js", "./play/best/sim.js", "./play/best/features.js", "./play/best/search.js", "./play/best/model.json"] + [f"./demo/data/{r}.json" for r in RANGES] + ["./docs/PLAIN_ENGLISH.html", "./docs/README.html"]
+    core = ["./", "./index.html", "./site.css", "./icon-192.png", "./demo/", "./demo/index.html", "./demo/static/dashboard.css", "./demo/static/dashboard.js", "./playground/", "./playground/index.html", "./playground/playground.js", "./contribute/", "./contribute/index.html", "./contribute/core.js", "./contribute/worker.js", "./contribute/contribute.js", "./contribute/phase_diagram.json", "./register-sw.js", "./play/", "./play/index.html", "./play/bot.js", "./play/driver.js", "./play/pixels781.json", "./yourself/", "./yourself/index.html", "./yourself/yourself.js", "./play/best/worker.js", "./play/best/sim.js", "./play/best/features.js", "./play/best/search.js", "./play/best/model.json"] + [f"./demo/data/{r}.json" for r in RANGES] + ["./docs/PLAIN_ENGLISH.html", "./docs/README.html"]
     sw = open(os.path.join(ROOT, "web/sw.js")).read().replace("@@VERSION@@", time.strftime("%Y%m%d%H%M%S")).replace("@@CORE@@", json.dumps(core))
     open(out + "/sw.js", "w").write(sw); open(out + "/.nojekyll", "w").write("")
     return out

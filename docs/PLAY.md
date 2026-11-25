@@ -1,6 +1,9 @@
 # Watch the bot play the real game
 
-The page **[Watch the bot play](https://jaxsondez93-arch.github.io/nn-dashboard/play/)** runs the game in an embedded frame and lets a bot play it live, in your browser, on your device. Nothing is sent anywhere.
+There are two separate pages, both running the game in your browser on your device; nothing is sent anywhere.
+
+- **[Watch the bot play](https://jaxsondez93-arch.github.io/nn-dashboard/play/)**: the bot plays, you watch. Your taps, clicks and keys do not reach the game, so you cannot interfere; you can only pause or resume the bot, and a change of strategy takes effect at the next game.
+- **[Play it yourself](https://jaxsondez93-arch.github.io/nn-dashboard/yourself/)**: just you and the game, at full sharpness. The page only counts your turns; it sends the game no input.
 
 ## What the bot does
 It repeats one loop: wait until the board is still, read the blocks, choose an aim, press at that spot, wait for the balls to finish, record what happened. When a game ends it presses Play and starts another.
