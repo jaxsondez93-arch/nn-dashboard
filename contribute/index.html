@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://ntfy.sh https://script.google.com https://script.googleusercontent.com; manifest-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Lend your processor · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb">
 <style>.consent { display:flex; gap:.8rem; align-items:flex-start; font-size:1.05rem; } .consent input { width:1.5rem; height:1.5rem; margin-top:.15rem; flex:none; } .big { font-size:2.4rem; font-weight:700; font-variant-numeric:tabular-nums; } .dot { display:inline-block; width:.7rem; height:.7rem; border-radius:50%; background:var(--muted); margin-right:.4rem; } .on .dot { background:var(--ok); }</style></head>
 <body>
@@ -13,7 +13,7 @@
 <section class="lab" id="live"><div id="state"><span class="dot"></span><span id="status">Tick the box to start.</span></div><div class="big" id="count">0</div><div class="note">shots simulated by this device</div><div class="readout" id="sent"></div></section>
 <section class="lab"><h2>The details</h2><ul>
 <li><b>Stop any time:</b> untick the box or close the page. It pauses when the page is hidden or the battery is low and not charging (where your browser reports it), and stops after 30 minutes per visit. It works gently, about a third of one processor core.</li>
-<li><b>What is sent:</b> a task number and, for each practice shot, two numbers (damage done and how close it came to losing). No name, account, device details or location. The results are received by a Google script run by the project owner, so Google sees your internet address, as with any website.</li>
+<li><b>What is sent:</b> a task number and, for each practice shot, two numbers (damage done and how close it came to losing). No name, account, device details or location. The results travel to the project owner through <b>ntfy.sh</b>, a free public message relay, so ntfy.sh sees your internet address, as any website does. The channel is not secret: someone who finds its name could read these numbers or post to it, which is one reason every result is re-checked.</li>
 <li><b>Results are checked, not trusted:</b> the owner re-computes a sample of them. As with any web page, a technically skilled person can inspect what their own browser does; altered results are detected and thrown away.</li>
 <li>No install, no permissions, no camera, microphone, location or files. <a href="../docs/CONTRIBUTE_COMPUTE.html">Full explanation</a>.</li></ul></section>
 </main>
