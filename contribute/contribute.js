@@ -17,7 +17,7 @@ function setButtons() {
 function ensureWorker() { if (worker) return; worker = new Worker("worker.js"); worker.onmessage = onWorker; worker.onerror = () => { say("The background worker failed to start in this browser."); state = "idle"; setButtons(); }; }
 function nextUnit() {
   if (state !== "running") return;
-  if (runMs >= +$("cap").value * 60000) { state = "capped"; say("Session limit reached: thank you! Press Resume to continue for another session."); runMs = 0; setButtons(); return; }
+  if (+$("cap").value > 0 && runMs >= +$("cap").value * 60000) { state = "capped"; say("Session limit reached: thank you! Press Resume to continue for another session."); runMs = 0; setButtons(); return; }
   const p = pickUnit(); current = C.unitFor(p.cell, p.block); worker.postMessage({ cmd: "start", cell: current.cell, block: current.block, duty: +$("duty").value });
   say(`Working on unit ${current.cell}-${current.block}: ${current.K} tests per board, hunch quality ${current.q}.`);
 }
@@ -39,26 +39,36 @@ document.addEventListener("visibilitychange", () => { if (document.hidden && sta
 if (navigator.getBattery) navigator.getBattery().then((b) => { const check = () => { if (state === "running" && !b.charging && b.level < 0.3) halt("paused", "Paused: battery is below 30% and not charging."); }; b.addEventListener("levelchange", check); b.addEventListener("chargingchange", check); });
 else $("status").textContent = "Tick the box to begin. (This browser does not report battery level: plug in for long sessions.)";
 
-/* ---------- results list ---------- */
-function persist() { try { localStorage.setItem(MINE_KEY, JSON.stringify(mine.slice(-50))); } catch (e) {} }
+/* ---------- results: collect everything, submit with one press ---------- */
+const MAX_KEEP = 20000, MAX_PER_ISSUE = 2500, URL_LIMIT = 7500;
+function persist() { try { localStorage.setItem(MINE_KEY, JSON.stringify(mine.slice(-MAX_KEEP).map((r) => [r.cell, r.block, r.sums.random, r.sums.even, r.sums.c2f, r.sums.hunch, r.sent ? 1 : 0]))); } catch (e) {} }
+function restore() { try { const rows = JSON.parse(localStorage.getItem(MINE_KEY) || "[]"); return rows.map((x) => { if (!Array.isArray(x)) return null; const r = C.expandBundle({ v: 2, units: [x.slice(0, 6)] })[0]; if (r) r.sent = !!x[6]; return r; }).filter((r) => r && C.validShape(r)); } catch (e) { return []; } }
 function addMine(r) { mine.push(r); persist(); renderMine(); }
-function issueUrl(r) { const body = "```json\n" + JSON.stringify(r) + "\n```\nA work-unit result from the 'Lend your processor' page. It contains no personal data; verify with `node tools/verify_unit.js`."; return `https://github.com/${REPO}/issues/new?labels=work-unit&title=${encodeURIComponent(`Work unit result ${r.cell}-${r.block}`)}&body=${encodeURIComponent(body)}`; }
-async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { const ta = el("textarea"); ta.value = t; document.body.append(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch (e2) {} ta.remove(); return ok; } }
+const unsent = () => mine.filter((r) => !r.sent);
 function renderMine() {
-  const list = $("list"); list.replaceChildren(); $("mine-note").textContent = mine.length ? "Nothing here has been sent anywhere. Share only if you want to." : "None yet. Each finished unit shows its result here; nothing is shared until you choose.";
-  mine.slice().reverse().forEach((r, i) => {
-    const u = C.unitFor(r.cell, r.block), note = el("span", { class: "note" });
-    const card = el("div", { class: "card", style: "margin:.6rem 0" }, el("h3", { text: `Unit ${r.cell}-${r.block} · ${u.K} tests · hunch ${u.q}` }),
-      el("p", { text: `Total regret over ${r.boards} boards (lower is better): random ${r.sums.random} · evenly spaced ${r.sums.even} · zoom-in ${r.sums.c2f} · hunch ${r.sums.hunch}. Checksum ${r.check}.` }));
-    const verify = el("button", { class: "small", text: "Verify here" }); verify.onclick = () => { const v = C.verify(r); note.textContent = v.ok ? " verified: recomputed on this device and it matches" : " MISMATCH: " + v.reason; };
-    const copy = el("button", { class: "small", text: "Copy JSON" }); copy.onclick = async () => { note.textContent = (await copyText(JSON.stringify(r))) ? " copied" : " could not copy"; };
-    const share = el("a", { class: "btn", href: issueUrl(r), target: "_blank", rel: "noopener noreferrer", text: "Share on GitHub (opens a public page)" });
-    const drop = el("button", { class: "small", text: "Discard" }); drop.onclick = () => { mine.splice(mine.length - 1 - i, 1); persist(); renderMine(); };
-    card.append(el("div", { class: "controls" }, verify, copy, share, drop, note)); list.append(card);
-  });
+  const u = unsent().length, n = mine.length;
+  $("mine-note").textContent = n ? `${n} units finished on this device (${(n * C.COUNT).toLocaleString()} boards) · ${u} not yet submitted.` : "None yet. Finished work collects here; nothing is sent until you press the button.";
+  $("submit").disabled = !u; $("submit").textContent = u ? `Submit all ${Math.min(u, MAX_PER_ISSUE)} (one press)` : "Submit all"; $("download").disabled = $("check").disabled = !n; $("clear").disabled = !(n - u);
 }
-try { mine = (JSON.parse(localStorage.getItem(MINE_KEY) || "[]") || []).filter(C.validShape); } catch (e) { mine = []; }
-renderMine(); setButtons();
+const issueLink = (title, body) => `https://github.com/${REPO}/issues/new?labels=work-unit&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+function copyNow(t) { const ta = el("textarea"); ta.value = t; ta.style.cssText = "position:fixed;opacity:0"; document.body.append(ta); ta.select(); ta.setSelectionRange(0, t.length); let ok = false; try { ok = document.execCommand("copy"); } catch (e) {} ta.remove(); return ok; }   // synchronous: stays inside the tap, which phone browsers require
+async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { const ta = el("textarea"); ta.value = t; document.body.append(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch (e2) {} ta.remove(); return ok; } }
+$("submit").onclick = async () => {
+  const batch = unsent().slice(0, MAX_PER_ISSUE); if (!batch.length) return;
+  const json = JSON.stringify(C.makeBundle(batch)), title = `Work unit result bundle (${batch.length} units)`, body = "```json\n" + json + "\n```\nResults from the 'Lend your processor' page. No personal data; verify with tools/aggregate_results.js.";
+  let url = issueLink(title, body), msg = `Opened GitHub with ${batch.length} results: press "Submit new issue" there.`;
+  if (url.length > URL_LIMIT) { const ok = copyNow(body) || (await copyText(body)); if (!ok) { $("submit-note").textContent = "Could not copy automatically. Use Download and attach the file to a new issue."; return; }
+    url = issueLink(title, "Delete this line, then PASTE here (the results are on your clipboard)."); msg = `${batch.length} results copied. In the page that opened, paste into the big box and press "Submit new issue".`; }
+  window.open(url, "_blank", "noopener,noreferrer"); batch.forEach((r) => { r.sent = true; }); persist(); renderMine();
+  $("submit-note").replaceChildren(msg + " ", el("a", { href: url, target: "_blank", rel: "noopener noreferrer", text: "Nothing opened? Tap here." }), " ", Object.assign(el("button", { class: "small", text: "It did not go through: mark as not sent" }), { onclick: () => { batch.forEach((r) => { r.sent = false; }); persist(); renderMine(); $("submit-note").textContent = "Marked as not sent."; } }));
+};
+$("download").onclick = () => { const a = el("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(C.makeBundle(mine))], { type: "application/json" })); a.download = "my-results.json"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+$("check").onclick = () => { const pick = mine.slice().sort(() => Math.random() - 0.5).slice(0, 3), ok = pick.filter((r) => C.verify(r).ok).length; $("submit-note").textContent = `Recomputed ${pick.length} of your results on this device: ${ok} match exactly.`; };
+$("clear").onclick = () => { mine = unsent(); persist(); renderMine(); $("submit-note").textContent = "Submitted results forgotten on this device."; };
+mine = restore(); renderMine(); setButtons();
+/* start by itself, if the visitor asked for that earlier (consent is part of that choice); it still pauses when the tab is hidden or the battery is low */
+try { if (localStorage.getItem("nn-auto") === "1") { $("auto").checked = true; $("consent").checked = true; $("cap").value = "0"; setTimeout(() => { if (!document.hidden) start(); }, 600); } } catch (e) {}
+$("auto").addEventListener("change", () => { try { localStorage.setItem("nn-auto", $("auto").checked ? "1" : "0"); } catch (e) {} if ($("auto").checked) { $("consent").checked = true; $("cap").value = "0"; setButtons(); start(); } });
 
 /* ---------- community heat map ---------- */
 fetch("phase_diagram.json", { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((d) => {

@@ -1,0 +1,2 @@
+box2d.js is the physics library as extracted from the FALLING BALLZ runtime (a Box2D port); engine_constants.json holds shapes and settings derived from the game.
+They are hosted with the game, at the site owner's request, and are not part of the nn-dashboard source or its MIT licence. See ../../game/NOTICE.txt.
