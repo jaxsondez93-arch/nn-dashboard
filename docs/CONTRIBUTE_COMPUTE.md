@@ -5,6 +5,11 @@ On the **[Lend your processor](https://jaxsondez93-arch.github.io/nn-dashboard/c
 ## What the device computes
 The project has 896 recorded training boards. On each, only about 98 of the 781 possible aims have been simulated; about **612,000** have not. A task is one board and up to 40 of those aims. The device runs the game's own physics (the same browser simulator the bot uses) and records, for each shot, the **damage** done and the **margin to losing** (in rows). Only training boards are published; the validation and test games used to judge the model are never included.
 
+## How results are sent
+Finished tasks wait on the device and go out in one message at a time. Each message is compressed (gzip, then base64; format version 4), which on real results fits about six times as many shots as plain text. Messages are at least 20 seconds apart, a partly filled one waits 45 seconds, and if the relay says "slow down" the page waits 5 minutes. The whole backlog is saved on the device; at 600 waiting tasks the work pauses until it is back down to 300. Unticking stops the work, and finished results are still sent while the page is open (or the next time it is opened). Keep only one tab of the page open: tabs share the saved backlog.
+
+The relay's free allowance limits messages per day for each network address, so devices on the same network share it.
+
 ## How hard it works
 A slider from **1% to 100%** sets the share of all the processor cores the browser reports (100% = every core fully busy; 25% to begin with). The page turns that into a number of parallel workers and how busy each is. The graphics chip is not used, and some browsers (notably on iPhones) report fewer cores than the chip has.
 

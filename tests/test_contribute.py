@@ -1,8 +1,11 @@
 """The volunteer page and its checking tools. The tests that simulate shots need Node and the engine files (NN_ENGINE_DIR); they are skipped otherwise."""
+import base64, gzip
 import glob, json, os, re, shutil, subprocess, sys, tempfile, unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NODE, ENGINE = shutil.which("node"), os.environ.get("NN_ENGINE_DIR")
 C = os.path.join(ROOT, "web/contribute")
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import collect
 read = lambda *p: open(os.path.join(*p), encoding="utf-8").read()
 
 
@@ -40,11 +43,54 @@ class Page(unittest.TestCase):
 
 class Collector(unittest.TestCase):
     def test_only_well_formed_results_are_kept(self):
-        sys.path.insert(0, os.path.join(ROOT, "tools")); import collect
         ok = {"u": 3, "d": [1, 2], "m": [100, None]}
         msg = json.dumps({"v": 3, "results": [ok, {"u": -1, "d": [1], "m": [1]}, {"u": 1, "d": [1, 2], "m": [1]}, {"u": 1, "d": ["x"], "m": [1]}, "junk"], "extra": 1})
         self.assertEqual(collect.results_in(msg), [ok])
         for bad in ("", "not json", "[]", json.dumps({"v": 2, "results": [ok]}), json.dumps({"v": 3, "results": "x"})): self.assertEqual(collect.results_in(bad), [])
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class Outbox(unittest.TestCase):
+    def js(self, body):
+        return node(f'const O=require({json.dumps(C + "/outbox.js")}); (async()=>{{ {body} }})()')
+
+    QUEUE = "const q=Array.from({length:300},(_,i)=>({u:i*7,d:Array.from({length:40},(_,k)=>(i*k)%23),m:Array.from({length:40},(_,k)=>k%5?100+(i+k*37)%900:null)}));"
+
+    def test_compressed_message_fits_and_the_collector_reads_it_back_exactly(self):
+        got = self.js(self.QUEUE + "const a=await O.pack(q,true); console.log(JSON.stringify({count:a.count,body:a.body,sent:q.slice(0,a.count),plain:(await O.pack(q,false)).count}))")
+        self.assertLessEqual(len(got["body"]), 3800); self.assertEqual(collect.results_in(got["body"]), got["sent"]); self.assertGreater(got["count"], 2 * got["plain"])
+
+    def test_uncompressed_form_still_works(self):
+        got = self.js(self.QUEUE + "const a=await O.pack(q,false); console.log(JSON.stringify({body:a.body,sent:q.slice(0,a.count)}))")
+        self.assertLessEqual(len(got["body"]), 3800); self.assertEqual(collect.results_in(got["body"]), got["sent"])
+
+    def test_a_single_waiting_task_is_sent(self):
+        self.assertEqual(self.js("console.log((await O.pack([{u:1,d:[2],m:[3]}],true)).count)"), 1)
+
+    def test_when_the_next_message_may_go(self):
+        got = self.js("const s=(o)=>O.due(Object.assign({queued:1,now:1e6,lastTry:0,lastSend:0,blockedUntil:0},o)); console.log(JSON.stringify([s({}), s({queued:0}), s({lastTry:1e6-19000}), s({lastTry:1e6-30000,lastSend:1e6-30000}), s({queued:80,lastTry:1e6-21000,lastSend:1e6-21000}), s({lastTry:1e6-46000,lastSend:1e6-46000}), s({blockedUntil:1e6+1})]))")
+        self.assertEqual(got, [True, False, False, False, True, True, False])
+
+    def test_work_pauses_on_a_full_backlog_and_resumes_when_it_drains(self):
+        got = self.js("console.log(JSON.stringify([O.hold(false,599), O.hold(false,600), O.hold(true,301), O.hold(true,300)]))")
+        self.assertEqual(got, [False, True, True, False])
+
+    def test_the_whole_backlog_is_saved(self):
+        self.assertIn("JSON.stringify(queue));", read(C, "contribute.js")); self.assertNotIn("queue.slice(-", read(C, "contribute.js"))
+
+
+class Compressed(unittest.TestCase):
+    def pack(self, data):
+        return json.dumps({"v": 4, "z": base64.b64encode(gzip.compress(data)).decode()})
+
+    def test_good_message(self):
+        ok = {"u": 5, "d": [1, 2], "m": [3, None]}
+        self.assertEqual(collect.results_in(self.pack(json.dumps({"v": 3, "results": [ok]}).encode())), [ok])
+
+    def test_hostile_or_broken_messages_are_ignored(self):
+        bomb = self.pack(b'{"v":3,"results":[],"x":"' + b"a" * 1_000_000 + b'"}'); deep = self.pack(b"[" * 100_000)
+        for bad in (bomb, deep, self.pack(b"not json"), json.dumps({"v": 4}), json.dumps({"v": 4, "z": "@@@"}), json.dumps({"v": 4, "z": base64.b64encode(b"plain").decode()}), "[" * 4000):
+            self.assertEqual(collect.results_in(bad), [])
 
 
 @unittest.skipUnless(NODE, "node not installed")

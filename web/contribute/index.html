@@ -20,7 +20,7 @@
 <h1>Lend your processor</h1>
 <p>Help train our aim model: your device practises shots of the game, thousands of times, and sends back what happened.</p>
 <section class="lab"><label class="consent"><input type="checkbox" id="consent">
-<span><b>I agree that my device will be used to compute training data for your neural network aim model.</b> While this page is open it runs game simulations, using as much processor power as the setting below allows (which uses battery and warms the device), and sends the results to the project owner automatically. I will not be shown the results or edit them. This continues on later visits until I untick the box.</span></label></section>
+<span><b>I agree that my device will be used to compute training data for your neural network aim model.</b> While this page is open it runs game simulations, using as much processor power as the setting below allows (which uses battery and warms the device), and sends the results to the project owner automatically. I will not be shown the results or edit them. This continues on later visits until I untick the box. Unticking stops the work; results already finished are still sent while this page is open.</span></label></section>
 <section class="lab" id="control"><h2>How hard should it work?</h2>
 <div class="powerrow"><input type="range" id="power" min="1" max="100" step="1" value="25" aria-label="Share of all processor cores to use, percent"><output id="power-value">25%</output></div>
 <div class="readout" id="power-effect"></div><div class="note" id="power-note">100% means every processor core your browser reports, fully busy. The graphics chip is not used.</div>
@@ -46,11 +46,11 @@
 <div class="mcard chart" id="batt-card" hidden><h3>Battery <small id="m-batt"></small></h3><p>Shown only where the browser reports it.</p><svg id="ch-batt" viewBox="0 0 600 190" role="img"></svg></div>
 
 <section class="lab"><h2>The details</h2><ul>
-<li><b>Stop any time:</b> untick the box or close the page. It always pauses when the page is hidden. How hard it works is up to you (the slider, 25% to begin with), and the safety switches are on until you turn one off.</li>
-<li><b>What is sent:</b> a task number and, for each practice shot, two numbers (damage done and how close it came to losing). No name, account, device details or location. The results travel to the project owner through <b>ntfy.sh</b>, a free public message relay, so ntfy.sh sees your internet address, as any website does. The channel is not secret: someone who finds its name could read these numbers or post to it, which is one reason every result is re-checked.</li>
+<li><b>Stop any time:</b> untick the box or close the page. Unticking stops the work, and results already finished are still sent while the page stays open. Anything unsent is saved on your device and sent the next time you open this page. The work always pauses when the page is hidden. How hard it works is up to you (the slider, 25% to begin with), and the safety switches are on until you turn one off.</li>
+<li><b>What is sent:</b> a task number and, for each practice shot, two numbers (damage done and how close it came to losing), compressed to save messages. No name, account, device details or location. The results travel to the project owner through <b>ntfy.sh</b>, a free public message relay, so ntfy.sh sees your internet address, as any website does. The channel is not secret: someone who finds its name could read these numbers or post to it, which is one reason every result is re-checked.</li>
 <li><b>Results are checked, not trusted:</b> the owner re-computes a sample of them. As with any web page, a technically skilled person can inspect what their own browser does; altered results are detected and thrown away.</li>
 <li>No install, no permissions, no camera, microphone, location or files. <a href="../docs/CONTRIBUTE_COMPUTE.html">Full explanation</a>.</li></ul></section>
 </main>
 <footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/CONTRIBUTE_COMPUTE.html">how it works</a></footer>
-<script src="power.js"></script><script src="monitor.js"></script><script src="contribute.js"></script><script src="../register-sw.js"></script>
+<script src="outbox.js"></script><script src="power.js"></script><script src="monitor.js"></script><script src="contribute.js"></script><script src="../register-sw.js"></script>
 </body></html>

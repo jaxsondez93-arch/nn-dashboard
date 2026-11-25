@@ -1,18 +1,31 @@
 #!/usr/bin/env python3
 """Pick up volunteers' results from the relay channel and append them to a local file. Standard library only. Stores only the results and the time received.
 Usage: python3 tools/collect.py web/contribute/collector.json results.jsonl [--once]   (check the results afterwards with tools/check_results.js)"""
-import json, sys, time, urllib.request
+import base64, json, sys, time, urllib.request, zlib
+
+MAX_RAW = 200_000                                    # the most a compressed message may expand to
 
 
 def good(r):
     return isinstance(r, dict) and isinstance(r.get("u"), int) and r["u"] >= 0 and isinstance(r.get("d"), list) and isinstance(r.get("m"), list) and 0 < len(r["d"]) == len(r["m"]) <= 40 and all(isinstance(x, int) and x >= 0 for x in r["d"])
 
 
+def unpack(z):
+    """The compressed form (version 4: gzip, then base64). The channel is public, so expansion is capped and anything odd is ignored."""
+    try:
+        d = zlib.decompressobj(31); raw = d.decompress(base64.b64decode(z, validate=True), MAX_RAW)
+        return json.loads(raw) if d.eof else None
+    except (ValueError, TypeError, RecursionError, zlib.error):
+        return None
+
+
 def results_in(message):
     try:
         data = json.loads(message)
-    except ValueError:
+    except (ValueError, RecursionError):
         return []
+    if isinstance(data, dict) and data.get("v") == 4:
+        data = unpack(data.get("z"))
     return [{"u": r["u"], "d": r["d"], "m": r["m"]} for r in data.get("results", []) if good(r)] if isinstance(data, dict) and data.get("v") == 3 and isinstance(data.get("results"), list) else []
 
 
