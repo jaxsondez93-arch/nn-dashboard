@@ -49,5 +49,12 @@ class Site(unittest.TestCase):
         for i in m["icons"]: self.assertGreater(os.path.getsize(self.p(i["src"])), 100)
 
 
+class FreshFiles(unittest.TestCase):
+    def test_a_refresh_cannot_be_served_stale_files(self):
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web/sw.js")) as f:
+            sw = f.read()
+        self.assertIn('fetch(e.request, { cache: "no-cache" })', sw); self.assertIn('{ cache: "reload" }', sw); self.assertIn('headers.set("Cache-Control", "no-cache")', sw); self.assertIn("return fresh(res)", sw)
+
+
 if __name__ == "__main__":
     unittest.main()
