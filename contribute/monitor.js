@@ -56,7 +56,7 @@
     const rates = done.map((b) => b.n / Math.max(1, b.s)), times = done.map((b) => median(b.ms) || 0);
     const recent = buckets.slice(-3), rs = recent.reduce((a, b) => a + b.s, 0), now = rs ? recent.reduce((a, b) => a + b.n, 0) / rs : 0, perShot = median(recent.flatMap((b) => b.ms));
     $("m-speed").textContent = running ? now.toFixed(1) : "–"; $("m-ms").textContent = perShot === null ? "–" : `${Math.round(perShot)} ms`; $("count").textContent = total.toLocaleString(); $("m-visit").textContent = visitShots.toLocaleString();
-    $("m-sent").textContent = sentShots.toLocaleString(); $("m-wait").textContent = waiting ? `${waiting} batch item${waiting > 1 ? "s" : ""} waiting` : "nothing waiting"; $("m-last").textContent = lastSent ? lastSent.toLocaleTimeString() : "not yet";
+    $("m-sent").textContent = sentShots.toLocaleString(); $("m-wait").textContent = waiting ? `${waiting} task${waiting > 1 ? "s" : ""} waiting` : "nothing waiting"; $("m-last").textContent = lastSent ? lastSent.toLocaleTimeString() : "not yet";
     $("m-time").textContent = fmtT(activeS); const unlimited = api.capLeft === null; $("m-left").textContent = unlimited ? "no limit" : fmtT(Math.max(0, (api.capLeft || 0) / 1000)); $("m-cap").hidden = unlimited; $("m-cap").value = api.capAll && !unlimited ? 100 * (1 - Math.max(0, api.capLeft) / api.capAll) : 0;
     $("m-share").textContent = `${(100 * total / POOL).toFixed(total / POOL < 0.001 ? 3 : 2)}%`; $("m-cores").textContent = navigator.hardwareConcurrency || "?";
     const fresh = at.map((x, i) => i).filter((i) => buckets.indexOf(done[i]) >= since), v = verdict(fresh.map((i) => at[i]), fresh.map((i) => rates[i])); $("m-verdict").textContent = v.text; $("m-verdict").className = "verdict " + v.word;
