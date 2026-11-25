@@ -32,6 +32,10 @@ To request removal, open an issue on the repository; deleting the play/game fold
 """
 
 
+# The game is third-party code running under this site's address, so the browser is told to let it load and contact this site only.
+GAME_CSP = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' data: blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+
+
 def add_game(out):
     """Copy the game into play/game if NN_GAME_DIR points at its folder. The files are never part of the repository: they are added only when the site is built."""
     src = os.environ.get("NN_GAME_DIR")
@@ -40,6 +44,8 @@ def add_game(out):
     page = open(os.path.join(dst, "index.html"), encoding="utf-8-sig").read(); page = page.replace('<script src="../../next/next-adapter.js"></script>', "")
     # On high-density screens (most phones) the game renders at a rounded size and aims land a fraction off, so the bot's predictions miss. Only when loaded by the bot page (?bot=1) it runs at density 1.
     page = page.replace("<head>", '<head>\n<script>if (location.search.indexOf("bot=1") >= 0) { try { Object.defineProperty(window, "devicePixelRatio", { get: function () { return 1; } }); } catch (e) {} }</script>', 1)
+    page = page.replace("<head>", '<head>\n<script src="../clock.js"></script>', 1)                    # speed control: must run before the game's runtime loads (acts only with ?bot=1)
+    page = page.replace("<head>", f'<head>\n<meta http-equiv="Content-Security-Policy" content="{GAME_CSP}">', 1)
     open(os.path.join(dst, "index.html"), "w", encoding="utf-8").write(page); open(os.path.join(dst, "NOTICE.txt"), "w").write(GAME_NOTICE)
     import base64; open(os.path.join(dst, "loading-logo.png"), "wb").write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="))   # blank pixel
     return True
@@ -53,6 +59,16 @@ def add_engine(out):
     for f in files: shutil.copy(os.path.join(src, f), os.path.join(dst, f))
     open(os.path.join(dst, "NOTICE.txt"), "w").write("box2d.js is the physics library as extracted from the FALLING BALLZ runtime (a Box2D port); engine_constants.json holds shapes and settings derived from the game.\nThey are hosted with the game, at the site owner's request, and are not part of the nn-dashboard source or its MIT licence. See ../../game/NOTICE.txt.\n")
     return True
+
+
+def add_theme(out):
+    """Give every page of the site the light / dark switch (not the game itself, which has its own look)."""
+    for dp, _, files in os.walk(out):
+        if os.path.relpath(dp, out).startswith(os.path.join("play", "game")): continue
+        for f in files:
+            if not f.endswith(".html"): continue
+            path = os.path.join(dp, f); page = open(path, encoding="utf-8").read()
+            if "<head>" in page: open(path, "w", encoding="utf-8").write(page.replace("<head>", f'<head><script src="{os.path.relpath(os.path.join(out, "theme.js"), dp)}"></script>', 1))
 
 
 def build(out):
@@ -96,7 +112,7 @@ def build(out):
     shutil.copytree(os.path.join(ROOT, "web/yourself"), out + "/yourself")
     add_game(out)
     add_engine(out)
-    for f in ("index.html", "site.css", "manifest.webmanifest", "register-sw.js"): shutil.copy(os.path.join(ROOT, "web", f), os.path.join(out, f))
+    for f in ("index.html", "site.css", "manifest.webmanifest", "register-sw.js", "theme.js"): shutil.copy(os.path.join(ROOT, "web", f), os.path.join(out, f))
     # ---- icons
     try:
         from PIL import Image, ImageDraw
@@ -108,8 +124,9 @@ def build(out):
             im.save(f"{out}/icon-{size}.png")
     except ImportError:
         for size in (192, 512): open(f"{out}/icon-{size}.png", "wb").write(b"")
+    add_theme(out)
     # ---- service worker (version + file list), .nojekyll
-    core = ["./", "./index.html", "./site.css", "./icon-192.png", "./demo/", "./demo/index.html", "./demo/static/dashboard.css", "./demo/static/dashboard.js", "./playground/", "./playground/index.html", "./playground/playground.js", "./contribute/", "./contribute/index.html", "./contribute/tasks.js", "./contribute/worker.js", "./contribute/contribute.js", "./contribute/monitor.js", "./contribute/power.js", "./contribute/outbox.js", "./register-sw.js", "./play/", "./play/index.html", "./play/bot.js", "./play/driver.js", "./play/pixels781.json", "./yourself/", "./yourself/index.html", "./yourself/yourself.js", "./play/best/worker.js", "./play/best/sim.js", "./play/best/features.js", "./play/best/search.js", "./play/best/model.json"] + [f"./demo/data/{r}.json" for r in RANGES] + ["./docs/PLAIN_ENGLISH.html", "./docs/README.html"]
+    core = ["./", "./index.html", "./site.css", "./theme.js", "./icon-192.png", "./demo/", "./demo/index.html", "./demo/static/dashboard.css", "./demo/static/dashboard.js", "./playground/", "./playground/index.html", "./playground/playground.js", "./contribute/", "./contribute/index.html", "./contribute/tasks.js", "./contribute/worker.js", "./contribute/contribute.js", "./contribute/monitor.js", "./contribute/power.js", "./contribute/outbox.js", "./register-sw.js", "./play/", "./play/index.html", "./play/bot.js", "./play/driver.js", "./play/clock.js", "./play/stats.js", "./play/analysis.js", "./play/thought.js", "./play/explore.js", "./play/system.js", "./play/pixels781.json", "./yourself/", "./yourself/index.html", "./yourself/yourself.js", "./play/best/worker.js", "./play/best/sim.js", "./play/best/features.js", "./play/best/search.js", "./play/best/model.json"] + [f"./demo/data/{r}.json" for r in RANGES] + ["./docs/PLAIN_ENGLISH.html", "./docs/README.html"]
     sw = open(os.path.join(ROOT, "web/sw.js")).read().replace("@@VERSION@@", time.strftime("%Y%m%d%H%M%S")).replace("@@CORE@@", json.dumps(core))
     open(out + "/sw.js", "w").write(sw); open(out + "/.nojekyll", "w").write("")
     return out

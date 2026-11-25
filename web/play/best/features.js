@@ -32,7 +32,14 @@
       return (bv || boardValues(b)).concat(four, rayValues(b, a)).map(Math.fround);
     }
     function scoreAll(b) { const bv = boardValues(b), w = model.weights, mu = model.mean, sd = model.std; return ang.map((_, i) => { const x = features(b, i, bv); let s = w[x.length]; for (let j = 0; j < x.length; j++) s += w[j] * (x[j] - mu[j]) / sd[j]; return s; }); }
-    return { features, scoreAll, angles: ang };
+    /* Aims ordered by how close a straight line from the launcher passes to any of the points, directly or after one side-wall bounce (blocks and gravity ignored: the simulator decides). */
+    function aimsToward(points) {
+      const miss = ang.map((a) => { const dx = Math.cos(a), dy = Math.sin(a); let best = Infinity;
+        for (const [px, py] of points) for (const x of W ? [px, -px, 2 * W - px] : [px]) { const ex = x - L[0], ey = py - L[1]; if (ex * dx + ey * dy > 0) best = Math.min(best, Math.abs(ex * dy - ey * dx)); }
+        return best; });
+      return Array.from({ length: Math.min(780, ang.length) }, (_, i) => i).sort((i, j) => miss[i] - miss[j] || i - j);
+    }
+    return { features, scoreAll, aimsToward, pickupOrder: (b) => aimsToward(b.pickups || []), angles: ang };
   }
   const api = { createScorer };
   root.NNFeatures = api; if (typeof module !== "undefined" && module.exports) module.exports = api;

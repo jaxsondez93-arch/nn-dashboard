@@ -11,7 +11,17 @@
 .pill { display:inline-block; padding:.1rem .6rem; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:.9rem; }
 table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding:.25rem .4rem; }
 #missing { display:none; } .bar { height:10px; background:var(--accent); border-radius:4px; }
-</style></head>
+</style><style>#analysis, #ex, #sys { --s1:#2a78d6; --s2:#eb6834; --neg:#e34948; } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #analysis, :root:not([data-theme="light"]) #ex, :root:not([data-theme="light"]) #sys { --s1:#3987e5; --s2:#d95926; --neg:#e66767; } } :root[data-theme="dark"] #analysis, :root[data-theme="dark"] #ex, :root[data-theme="dark"] #sys { --s1:#3987e5; --s2:#d95926; --neg:#e66767; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.6rem; } .tile { border:1px solid var(--line); border-radius:10px; padding:.6rem .75rem; display:flex; flex-direction:column; } .tile .k { font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); } .tile strong { font-size:1.7rem; } .tile .s { font-size:.8rem; color:var(--muted); }
+.chart { margin:1.1rem 0; } .chart h3 { margin:.2rem 0; } .chart svg { width:100%; height:auto; display:block; } .readline { min-height:1.5em; font-size:.85rem; color:var(--ink); } .legend { display:flex; flex-wrap:wrap; gap:.3rem 1.2rem; font-size:.82rem; color:var(--muted); } .legend i { display:inline-block; width:1.4rem; height:0; vertical-align:middle; margin-right:.35rem; border-top:2px solid; }
+.legend .k-obs { width:.6rem; height:.6rem; border:0; border-radius:50%; background:var(--ink); } .legend .k-l1 { border-color:var(--s1); } .legend .k-l2 { border-color:var(--s2); border-top-style:dashed; }
+.grid { stroke:var(--line); } .tick { fill:var(--muted); font-size:13px; } .l1 { fill:none; stroke:var(--s1); stroke-width:2; } .l2 { fill:none; stroke:var(--s2); stroke-width:2; stroke-dasharray:7 4; } .ref { fill:none; stroke:var(--muted); stroke-width:1.5; stroke-dasharray:3 4; }
+.obs { fill:var(--ink); stroke:var(--card); stroke-width:2; } .whisk { stroke:var(--ink); stroke-width:2; opacity:.55; } .dot { fill:var(--s1); opacity:.6; stroke:var(--card); stroke-width:1; } .meanmark { fill:var(--ink); stroke:var(--card); stroke-width:1.5; } .ghost { fill:transparent; }
+.wide { overflow-x:auto; max-width:100%; } #stage > div { min-width:0; } #showmind { min-width:1.2rem; } .formula { font-family:ui-monospace,monospace; background:var(--code); padding:.45rem .7rem; border-radius:8px; overflow-x:auto; white-space:nowrap; } p.head { font-weight:600; margin-bottom:.3rem; }
+.sysgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:0 1rem; } .chart.mini h3 { font-size:.95rem; margin-bottom:0; } .chart.mini .note { margin:.1rem 0; } .chart.mini .tick { font-size:21px; } .chart.mini .readline { display:none; }
+.band { fill:var(--s2); opacity:.18; } .fitline { fill:none; stroke:var(--s2); stroke-width:2; stroke-dasharray:7 4; } .series { fill:none; stroke:var(--s1); stroke-width:1.5; opacity:.7; } .bar { fill:var(--s1); } .corr .cell { width:100%; min-width:3.2rem; min-height:34px; border:1px solid var(--line); border-radius:6px; color:var(--ink); cursor:pointer; font:inherit; }</style>
+<style>#mind { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:1; background:transparent; border:0; border-radius:0; }   /* see-through: the game is underneath */</style>
+</head>
 <body>
 <header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="./">Watch the bot play</a><a href="../yourself/">Play it yourself</a><a href="../contribute/">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
 <main>
@@ -19,21 +29,52 @@ table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding
 <p>The game runs in this page, on your device. The bot reads the blocks, thinks, taps an aim and logs what happens, including how well its prediction matched what really happened. Nothing is sent anywhere.</p>
 <section class="lab" id="missing"><h2>The game files are not on this copy of the site</h2><p>This page needs the game in <code>play/game/</code>. See <a href="../docs/PLAY.html">how it is set up</a>.</p></section>
 <div class="stage" id="stage">
-  <div><div class="screen" id="screen"><iframe id="game" src="game/index.html?bot=1" title="Falling Ballz (the bot is playing; you are watching)" allow="autoplay" tabindex="-1" inert></iframe><div class="shield" aria-hidden="true"></div><span class="badge">bot only · watching</span></div>
+  <div><div class="screen" id="screen"><iframe id="game" src="game/index.html?bot=1" title="Falling Ballz (the bot is playing; you are watching)" allow="autoplay" tabindex="-1" inert></iframe><canvas id="mind" width="480" height="853" aria-hidden="true"></canvas><div class="shield" aria-hidden="true"></div><span class="badge">bot only · watching</span></div>
   <p class="note" style="text-align:center">Watch only: your taps do not reach this game. To play, use <a href="../yourself/">Play it yourself</a>.</p></div>
   <div>
     <section class="lab"><h2>The bot</h2>
-      <div class="controls"><label>strategy <select id="strategy"><option value="best" selected>Best bot: learned scorer + 30 simulations</option><option value="mix">Mix (a random arm each turn)</option><option value="top">Top block</option><option value="pair">Tightest pair</option><option value="wall">Near a wall</option><option value="random">Random aim</option></select></label></div>
+      <div class="controls"><label>speed <select id="speed"><option value="1" selected>normal</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option><option value="32">32×</option><option value="max">fastest this device can</option></select></label> <span class="pill" id="pace"></span></div>
+      <p class="note">Speed runs more of the same fixed game frames each screen refresh, drawing only the last one; none are skipped. The bot's thinking time is not affected.</p>
+      <div class="controls"><label>strategy <select id="strategy"><option value="best" selected>Best bot: survive, get the extra ball, then damage</option><option value="mix">Mix (a random arm each turn)</option><option value="top">Top block</option><option value="pair">Tightest pair</option><option value="wall">Near a wall</option><option value="random">Random aim</option></select></label></div>
       <p class="note">The strategy is fixed for the length of a game; a change takes effect when the next game starts.</p>
-      <div class="controls"><button class="small" id="start">Start the bot</button> <button class="small" id="stop" disabled>Pause</button> <button class="small" id="dl" disabled>Download the log</button> <span class="pill" id="state">idle</span></div>
+      <div class="controls"><button class="small" id="start">Start the bot</button> <button class="small" id="stop" disabled>Pause</button> <button class="small" id="dl" disabled>Download the log</button> <button class="small" id="clear" disabled>Erase the log</button> <label><input type="checkbox" id="showmind" checked> show it thinking</label> <span class="pill" id="state">idle</span></div>
       <div class="readout" id="now">Press Start. The first game begins on its own.</div>
-      <div class="readout" id="engine">Loading the best bot...</div><p class="note"><b>Best bot</b>: a learned scorer ranks all 781 aims, the game's own physics simulates the 30 most promising (zooming in around the two best), and it never picks a shot it predicts will lose while a surviving one exists. It thinks on your device for a second or a few. The other strategies use no simulator.</p></section>
+      <div class="readout" id="engine">Loading the best bot...</div><p class="note"><b>Best bot</b>: a learned scorer ranks all 781 aims and the game's own physics simulates the most promising ones. It then chooses, in order: survive, get the extra ball, do the most damage. If every tested shot would lose, it searches the rest until one survives. It thinks on your device; the other strategies use no simulator.</p></section>
     <section class="lab"><h2>Results so far</h2><div class="readout" id="summary">No games yet.</div><div id="bars"></div>
-      <table class="log" id="turns"><thead><tr><th>turn</th><th>how</th><th>balls</th><th>blocks</th><th>predicted</th><th>actual</th><th>think s</th></tr></thead><tbody></tbody></table></section>
+      <div class="wide"><table class="log" id="turns"><thead><tr><th>turn</th><th>how</th><th>balls</th><th>blocks</th><th>predicted</th><th>actual</th><th>think s</th></tr></thead><tbody></tbody></table></div></section>
   </div>
 </div>
+<details class="lab" id="sys" open><summary><h2 style="display:inline">The machine while it plays</h2></summary><p class="note" id="sys-host"></p><div class="sysgrid" id="sys-grid"></div></details>
+<section class="lab" id="analysis"><h2>How accurate are the predictions?</h2>
+<p class="note">Before each shot the bot's copy of the physics predicts the damage. This compares that with what the real game did.</p>
+<div class="controls"><span class="pill" id="an-source"></span> <label>open a saved log <input type="file" id="an-file" accept=".json,application/json"></label> <button class="small" id="an-back" hidden>Back to this session</button></div><div class="note" id="an-note"></div>
+<p id="an-empty" class="note">Nothing to analyse yet: start the bot, or open a saved log.</p>
+<div id="an-body" hidden>
+<div class="tiles" id="an-tiles"></div><p id="an-verdict"></p>
+<div class="chart" id="ch-acc"><h3>Exactly right, by number of balls</h3><p class="note">How the accuracy falls as the bot gets more balls.</p><div class="legend"><span><i class="k-obs"></i>measured (line = 95% range)</span><span><i class="k-l1"></i>model A: logistic</span><span><i class="k-l2"></i>model B: per ball</span></div><svg viewBox="0 0 600 250" role="img" aria-label="Exactly right, by number of balls"></svg><div class="readline"></div></div>
+<div class="chart" id="ch-roll"><h3>Exactly right, over time</h3><p class="note">Share exact in the last <span id="an-width">20</span> predicted turns.</p><svg viewBox="0 0 600 250" role="img" aria-label="Exactly right, over time"></svg><div class="readline"></div></div>
+<div class="chart" id="ch-scatter"><h3>Predicted against actual</h3><p class="note">Each dot is a turn. On the dashed line the prediction was exact; below it the game did less than expected.</p><svg viewBox="0 0 600 250" role="img" aria-label="Predicted against actual"></svg><div class="readline"></div></div>
+<div class="chart" id="ch-err"><h3>Size and direction of the miss</h3><p class="note">Actual minus predicted. Bars mark the average for each group of ball counts; below zero means the bot expected too much.</p><svg viewBox="0 0 600 250" role="img" aria-label="Size and direction of the miss"></svg><div class="readline"></div></div>
+<div class="chart" id="ch-think"><h3>Thinking time</h3><p class="note">Seconds the bot spent choosing, with a straight-line trend.</p><svg viewBox="0 0 600 250" role="img" aria-label="Thinking time"></svg><div class="readline"></div></div>
+<h3>The table behind the charts</h3><div class="wide"><table class="log" id="an-bins"></table></div>
+<div id="an-speed-wrap"><h3>By game speed</h3><div class="wide"><table class="log" id="an-speeds"></table></div><p class="note">Speed and ball count change together over a game, so this table alone cannot show whether speed matters.</p></div>
+<details><summary><b>The math, with this data's numbers</b></summary><div id="an-models"></div></details>
+<p class="note"><b>How much to trust it.</b> Turns in one game are not independent, and as balls increase so do turns and board complexity, so these fits describe the data; they do not show that balls alone cause the misses. The real ranges are likely wider than shown.</p>
+</div></section>
+<section class="lab" id="ex" hidden><h2>Explore the data</h2><p class="note">The same tools as the training dashboard, on the bot's turns.</p>
+<div class="controls"><label>over the game, show <select id="ex-trend"></select></label></div>
+<div class="chart" id="ex-ch-trend"><h3>Trend over the game</h3><p class="note">The line is the least-squares trend; the shaded band is its 95% range.</p><svg viewBox="0 0 600 250" role="img" aria-label="Trend over the game"></svg><div class="readline"></div></div><p id="ex-trend-say"></p>
+<h3>What moves with what</h3><p class="note">Correlation r from −1 to 1: blue means they rise together, red means one falls as the other rises. Press a square to plot it.</p><div class="wide"><table class="log corr" id="ex-corr"></table></div>
+<div class="controls"><label>across <select id="ex-x"></select></label> <label>up <select id="ex-y"></select></label></div>
+<div class="chart" id="ex-ch-scatter"><h3>Scatter plot</h3><p class="note">Each dot is a turn.</p><svg viewBox="0 0 600 250" role="img" aria-label="Scatter plot"></svg><div class="readline"></div></div><p id="ex-scatter-say"></p>
+<div class="controls"><label>between <select id="ex-rx"></select></label> <label>and <select id="ex-ry"></select></label> <label>window <input type="range" id="ex-w" min="8" max="60" value="25"> <span id="ex-wv">25</span> turns</label></div>
+<div class="chart" id="ex-ch-roll"><h3>Rolling correlation</h3><p class="note">Whether a relationship holds steady as the game goes on.</p><svg viewBox="0 0 600 250" role="img" aria-label="Rolling correlation"></svg><div class="readline"></div></div>
+<h3>What explains the variation?</h3><div class="controls"><label>explain <select id="ex-target"></select></label></div><div class="wide"><table class="log" id="ex-reg"></table></div><p id="ex-reg-say"></p>
+<div class="chart" id="ex-ch-hist"><h3>Spread of the misses</h3><p class="note">How often each size of miss happens.</p><svg viewBox="0 0 600 250" role="img" aria-label="Spread of the misses"></svg><div class="readline"></div></div>
+<div class="chart" id="ex-ch-acf"><h3>Do misses come in streaks?</h3><p class="note">Correlation between the size of a miss and the size of misses some turns earlier. Bars outside the dashed lines are unlikely to be chance.</p><svg viewBox="0 0 600 250" role="img" aria-label="Do misses come in streaks?"></svg><div class="readline"></div></div>
+</section>
 <p class="note">The game "FALLING BALLZ" is shown here at the site owner's request and is not part of the nn-dashboard source or its licence. See <a href="../docs/PLAY.html">the notice</a>.</p>
 </main>
 <footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/PLAY.html">how this works</a> · <a href="https://github.com/jaxsondez93-arch/nn-dashboard">source</a></footer>
-<script src="bot.js"></script><script src="driver.js"></script><script src="../register-sw.js"></script>
+<script src="bot.js"></script><script src="clock.js"></script><script src="stats.js"></script><script src="analysis.js"></script><script src="thought.js"></script><script src="explore.js"></script><script src="system.js"></script><script src="driver.js"></script><script src="../register-sw.js"></script>
 </body></html>

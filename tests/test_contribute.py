@@ -94,6 +94,83 @@ class Compressed(unittest.TestCase):
 
 
 @unittest.skipUnless(NODE, "node not installed")
+class GameClock(unittest.TestCase):
+    def test_frames_owed_follow_the_speed_and_do_not_pile_up(self):
+        got = node(f'const C=require({json.dumps(ROOT + "/web/play/clock.js")}); const S=C.STEP; console.log(JSON.stringify([C.due(0,S,1)/S, C.due(0,S,8)/S, C.due(S/2,S,2)/S, C.due(0,10000,4)/S, C.due(0,S,"max")===Infinity]))')
+        for a, b in zip(got[:4], [1, 8, 2.5, 16]): self.assertAlmostEqual(a, b)
+        self.assertTrue(got[4])
+
+
+class CollectorLimits(unittest.TestCase):
+    def test_a_message_cannot_deliver_an_unlimited_number_of_results(self):
+        many = json.dumps({"v": 3, "results": [{"u": i, "d": [1], "m": [1]} for i in range(1000)]})
+        self.assertEqual(len(collect.results_in(many)), collect.MAX_UNITS)
+
+    def test_message_ids_that_could_alter_the_address_are_refused(self):
+        for bad in ("", "a&since=all", "../x", "a b", "x" * 65): self.assertIsNone(collect.ID.fullmatch(bad), bad)
+        self.assertTrue(collect.ID.fullmatch("X8kfpSG2sX7t"))
+
+    def test_the_relay_must_be_https(self):
+        with tempfile.TemporaryDirectory() as t:
+            open(t + "/c.json", "w").write('{"endpoint": "http://example.invalid/x"}')
+            self.assertRaises(SystemExit, collect.main, t + "/c.json", t + "/out", True)
+
+
+class Pickups(unittest.TestCase):
+    def test_collector_keeps_pickup_counts_and_still_accepts_old_results(self):
+        old = {"u": 1, "d": [1, 2], "m": [3, 4]}; new = dict(old, u=2, k=[0, 1]); bad = [dict(old, k=[0]), dict(old, k=[0, -1]), dict(old, k="01")]
+        self.assertEqual(collect.results_in(json.dumps({"v": 3, "results": [old, new] + bad})), [old, new])
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class BestBotPriority(unittest.TestCase):
+    """The choice order, checked with a made-up simulator: aim i is pixel [i, 0]; each aim's outcome is given by the test."""
+    def choose(self, table, extra, pickups=True):
+        js = f"""const S=require({json.dumps(ROOT + "/web/play/best/search.js")}), T={json.dumps(table)};
+        const px=Array.from({{length:781}},(_,i)=>[i,0]), board={{blocks:[[1,100,900,50]],pickups:{"[[300,500]]" if pickups else "[]"},balls:1,turn:1}};
+        const sim={{simulate:(b,p)=>{{const o=T[p[0]]||{{}}; return {{hits:{{1:o.dmg||1}},completed:true,pickups_left:o.got?[]:board.pickups}}}}}};
+        const scorer={{scoreAll:()=>px.map((_,i)=>-i), pickupOrder:()=>Array.from({{length:780}},(_,i)=>(i+500)%780)}};
+        console.log(JSON.stringify(S.chooseAim(sim,scorer,px,board,{{n1:3,rho:10,refine:1,budget:6,extra:{extra}}})))"""
+        return node(js)
+
+    def test_the_ball_beats_more_damage(self):
+        r = self.choose({"0": {"dmg": 40}, "10": {"dmg": 2, "got": True}}, 0)
+        self.assertEqual((r["index"], r["collects"]), (10, 1))
+
+    def test_among_shots_that_get_the_ball_the_most_damage_wins(self):
+        r = self.choose({"0": {"dmg": 2, "got": True}, "10": {"dmg": 9, "got": True}, "20": {"dmg": 40}}, 0)
+        self.assertEqual((r["index"], r["predicted"]), (10, 9))
+
+    def test_extra_tests_find_a_ball_the_first_shots_missed(self):
+        r = self.choose({"506": {"dmg": 1, "got": True}}, 20)
+        self.assertEqual((r["index"], r["collects"]), (506, 1)); self.assertLessEqual(r["sims"], 6 + 20)
+
+    def test_when_every_first_shot_loses_it_searches_until_one_survives(self):
+        js = f"""const S=require({json.dumps(ROOT + "/web/play/best/search.js")});
+        const px=Array.from({{length:781}},(_,i)=>[i,0]), board={{blocks:[[1,100,900,50],[2,300,200,1]],pickups:[],balls:1,turn:1}};
+        const sim={{simulate:(b,p)=>({{hits:p[0]===613?{{1:1,2:1}}:{{1:30}},completed:true,pickups_left:[]}})}}, scorer={{scoreAll:()=>px.map((_,i)=>-i)}};
+        const r=S.chooseAim(sim,scorer,px,board,{{n1:3,rho:10,refine:1,budget:6}}), none=S.chooseAim({{simulate:()=>({{hits:{{1:3}},completed:true,pickups_left:[]}})}},scorer,px,board,{{n1:3,rho:10,refine:1,budget:6}});
+        console.log(JSON.stringify([r,none]))"""
+        found, hopeless = node(js)
+        self.assertEqual((found["index"], found["losing"], found["rescued"]), (613, False, True))
+        self.assertEqual((hopeless["losing"], hopeless["sims"], hopeless["searched_all"]), (True, 781, True))
+
+    def test_more_tests_never_make_the_choice_worse(self):
+        js = f"""const S=require({json.dumps(ROOT + "/web/play/best/search.js")});
+        let a=5; const rng=()=>(a=(Math.imul(a,48271)>>>0)%2147483647)/2147483647, px=Array.from({{length:781}},(_,i)=>[i,0]), board={{blocks:[[1,100,900,50],[2,300,200,1]],pickups:[[300,500]],balls:1,turn:1}};
+        let worse=0;
+        for(let t=0;t<600;t++){{ const pl=rng(), pg=rng()**3, base=Math.floor(rng()*781), T=px.map(()=>({{lost:rng()<pl,got:rng()<pg,dmg:Math.floor(rng()*20)}}));
+          const sim={{simulate:(b,p)=>{{const o=T[p[0]],h={{1:o.dmg}}; if(!o.lost) h[2]=1; return {{hits:h,completed:true,pickups_left:o.got?[]:board.pickups}}}}}}, sc={{scoreAll:()=>px.map((_,i)=>-Math.abs(i-base)),aimsToward:()=>[],pickupOrder:()=>Array.from({{length:780}},(_,i)=>(i*37+t)%780)}};
+          const rank=(e)=>{{const c=S.chooseAim(sim,sc,px,board,{{n1:12,rho:16,refine:5,budget:30,extra:e}}),o=S.outcome(sim,board,px[c.index]); return (o.lost?0:1)*1e6+o.got*1e3+o.damage}};      // survive, ball, damage as one number
+          if(rank(5)<rank(0)||rank(20)<rank(5)||rank(60)<rank(20)) worse++; }}
+        console.log(worse)"""
+        self.assertEqual(node(js), 0)
+
+    def test_no_extra_work_without_a_pickup(self):
+        self.assertLessEqual(self.choose({}, 40, pickups=False)["sims"], 6)
+
+
+@unittest.skipUnless(NODE, "node not installed")
 class Power(unittest.TestCase):
     def plan(self, pct, cores, **o):
         return node(f'const P=require({json.dumps(C + "/power.js")}); console.log(JSON.stringify(P.plan({pct}, {cores}, {json.dumps(o)})))')

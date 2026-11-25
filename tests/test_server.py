@@ -51,6 +51,19 @@ class T(unittest.TestCase):
         st, d = self.call("/api/stats?range=24h", token=s["session"]); self.assertEqual(st, 200); self.assertIn("aligned", d)
         self.assertEqual(self.call("/auth/login", {"device_id": r["device_id"], "nonce": n, "response": resp})[0], 403, "a nonce works once")
 
+    def test_without_a_login_only_requests_addressed_to_this_machine_are_answered(self):
+        def get(host):
+            req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/stats?range=24h", headers={"Host": host})
+            try:
+                with urllib.request.urlopen(req, timeout=20) as r: return r.status
+            except urllib.error.HTTPError as e: return e.code
+        self.settings.noauth = True
+        try:
+            self.assertEqual(get(f"127.0.0.1:{self.port}"), 200); self.assertEqual(get(f"localhost:{self.port}"), 200)
+            for bad in ("evil.example", f"evil.example:{self.port}", "127.0.0.1.evil.example"): self.assertEqual(get(bad), 403, bad)
+        finally:
+            self.settings.noauth = False
+
     def test_demo_mode_hides_real_machine_data(self):
         self.settings.demo = True
         try:

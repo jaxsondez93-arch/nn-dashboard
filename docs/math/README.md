@@ -2,6 +2,8 @@
 
 Two bodies of mathematical work sit behind this project, and they have very different standing. Please read the status columns.
 
+**New:** [what can be proved about the bot, and where the proofs stop](BOT_GUARANTEES.md).
+
 | | what it is | status |
 |---|---|---|
 | **A. The game proof project** | Exact collision geometry, multi-bounce dynamics and damage analysis for the puzzle game, with interval-arithmetic certificates and a long manuscript | Partly **certified pending independent review**, partly sampled, one central question **open**. See the [claim ledger](CLAIM_LEDGER.md) and the [audit](CERTIFIER_AUDIT.md). |

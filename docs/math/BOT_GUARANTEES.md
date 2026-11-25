@@ -1,0 +1,81 @@
+# What can be proved about the bot, and where the proofs stop
+
+This is about the choosing rule in `web/play/best/search.js`. The statements marked **proved** follow from how that code works. They are hand proofs, checked by tests on made-up cases, not machine-verified proofs. **The bot is not proved optimal, and it is not optimal by design** (see "Limits").
+
+## Setting
+- A **board** is the blocks (position and number), any extra-ball pickup and the number of balls.
+- **A** is the fixed set of 781 aims.
+- **S** is the simulator. For a board and an aim `a` it returns, deterministically: `L(a)` (1 if a surviving block reaches the loss line, else 0), `g(a)` (pickups collected) and `d(a)` (damage).
+- The **rank** of an aim is the triple `(1 − L, g, d)`, compared first entry first: survive, then the ball, then damage.
+- **T** is the set of aims the bot tests on this turn. It plays `c`, a highest-ranked aim in T.
+
+The bot builds T in three stages:
+1. **First pass:** 30 aims chosen by the scorer and a short search, plus the last aim.
+2. **Emergency search**, only if every first-pass aim loses: the remaining aims, those pointing at the threatening blocks first, until one survives (then up to 6 neighbours).
+3. **Extra-ball search**, only if the board has a pickup: if no aim so far collects it while surviving, up to `m` more aimed towards it; around a collecting aim, neighbours. At most `m` aims in all (`m = 20`).
+
+## Theorem 1: nothing tested beats the shot played (proved)
+No aim in T has a higher rank than `c`.
+
+*Proof.* `c` is chosen as a maximum of the rank over T. ∎
+
+## Theorem 2: survival is complete over the 781 aims (proved)
+If some aim in A survives in S, then the shot played survives in S.
+
+*Proof.* If the first pass contains a surviving aim, it is in T, and survival is the first entry of the rank, so by Theorem 1 `c` survives. Otherwise the emergency search runs. Its queue contains every aim of A that the first pass did not test (the aims pointing at threats, then all of the scorer's ordering, then the last aim, with repeats removed), and it stops only at a surviving aim or at the end of the queue. A surviving aim exists in the queue, so one is found and put in T. Theorem 1 applies. ∎
+
+**Corollary (what a losing shot means).** If the bot plays a shot that loses in S, then all 781 aims lose in S.
+
+## Theorem 3: testing more never makes the choice worse (proved)
+For the same board, raising the extra budget `m` never lowers the rank of the shot played.
+
+*Proof.* Stages 1 and 2 do not depend on `m`. Stage 3 walks a fixed sequence of aims and `m` only sets where it stops, so a larger `m` tests every aim a smaller one does, possibly more. A maximum over a larger set is not smaller. ∎
+
+**Corollary (against the earlier bot).** The earlier bot played an aim from the same first pass, so the present bot's shot never ranks below it. It **can** do less damage, when it trades damage for the ball or for survival.
+
+The order of stages 2 and 3 matters. With the extra-ball search first, a test on made-up cases found a case where a larger budget gave up a ball, so the emergency search comes first.
+
+## What these proofs assume
+| assumption | status |
+|---|---|
+| S behaves like the real game | **false with many balls.** It matched 892 of 900 reference results (boards with up to 4 balls), but in a long live game (see below) it was exactly right on far fewer shots once the bot had 5 or more balls. Where S is wrong, Theorem 2 can fail in the real game |
+| S's loss rule (a surviving block whose centre is at height 245 or less after the shot) is the game's rule | taken from the project's simulator, **not independently proved** |
+| 781 aims are enough | the real game allows aims in between. "All 781 lose" does not mean no shot at all could survive |
+| the code does what the proof says | checked by tests, including more-tests-never-worse and the emergency search |
+
+## The simulator's accuracy falls as balls increase (measured, cause unknown)
+One live game on 25 November 2026, snapshot of its first 197 predicted turns, played with shots running faster than normal speed:
+
+| balls | predictions exactly right |
+|---|---|
+| up to 4 | 93% of 29 turns |
+| 5 or more | 13% of 168 turns |
+
+On average the game did **9.2 points less** damage than predicted (± 2.2). A "each ball is its own chance" fit gives q = 0.865 per ball (the chance of an exact prediction halving about every 5 balls); it fitted slightly better than a logistic curve. Turns in one game are not independent, and ball count rose along with turn number, so this describes the data and does not prove that balls alone are the cause. Two causes have **not** been ruled out: the browser simulator being wrong for many balls, and the faster speed. **Until this is settled, the proofs above say little about the real game beyond about 4 balls.**
+
+## Limits: why this is not optimal
+1. **One turn only.** The rank looks at the current shot. Taking the ball instead of more damage may leave a board that cannot be survived next turn. Rules of the form "survive now, then ball, then damage" allow games in which that choice loses while the passed-over shot would have lived on, so no argument from these rules alone can show best long-run play. How often such positions arise here is open.
+2. **The order itself is a judgement.** "Ball before damage" has not been shown to lengthen games.
+3. **New rows are random**, and their odds have not been modelled. No statement of the form "the bot will certainly reach turn N" has been proved, and the proofs above cannot give one.
+
+## How "it reaches turn N" can be established: with a probability
+Certainty is out of reach, but a **lower bound on the chance** is not.
+
+**Theorem 4 (proved, standard).** Freeze the bot, choose N in advance, and play `n` independent games. If all `n` reach turn N, then with 95% confidence the chance of reaching turn N is at least `0.05^(1/n)`.
+
+*Proof.* If the true chance `p` were below `0.05^(1/n)`, seeing `n` successes out of `n` would have probability `p^n < 0.05`. ∎
+
+| games, all reaching turn N | chance is at least (95% confidence) |
+|---|---|
+| 10 | 74% |
+| 29 | 90% |
+| 59 | 95% |
+| 299 | 99% |
+
+With some failures, the exact binomial (Clopper–Pearson) bound is used instead. Any change to the bot restarts the count.
+
+## Next steps
+1. Record full games with the frozen bot, with N and the number of games written down first.
+2. Find why predictions fail with many balls: repeat the same many-ball shots at normal speed and at high speed, then compare the launch timing with the simulator's.
+3. Check the loss rule against recorded game endings in the training games.
+4. Estimate how new rows appear, then study two-turn positions (see [research to borrow from](../RESEARCH.md), ideas 1 and 7).

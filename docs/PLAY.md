@@ -12,7 +12,9 @@ It repeats one loop: wait until the board is still, read the blocks, choose an a
 This is the project's best method, ported to run in your browser:
 1. a **learned scorer** (a small linear model trained on 896 recorded boards) ranks all 781 aims;
 2. the **game's own physics** simulates the most promising, spread-out ones, then zooms in around the two best, 30 simulations in all;
-3. it plays the aim with the most predicted damage, and **never picks a shot it predicts will lose** while a surviving one exists (this guard is an addition and was not part of the measured search).
+3. it then picks one of the tested shots, in this order of importance: **survive**, **get the extra ball**, then **most damage**. When a board has an extra ball and none of the first shots collects it, up to 20 more are tested, aimed towards it. If **every** tested shot would lose, it keeps testing the other aims, those pointing at the threatening blocks first, until one survives, so it plays a losing shot only when all 781 lose in the simulator. What is and is not proved about this: [bot guarantees](math/BOT_GUARANTEES.md).
+
+On 240 recorded training boards with an extra ball, the bot with the new priorities collected it and survived on 89%, against 55% for the earlier damage-only bot, with the same four losing shots, about 6.5% less damage per shot and about 13% more simulations on those boards. (The 20 extra tests account for 89% versus 85%.) Those runs did not include the emergency search, and whether the trade pays off over a full game is untested.
 
 It thinks on your device, in the background, usually under a second or a few seconds on a phone. The log shows the **predicted and actual damage** for every shot.
 
@@ -28,6 +30,12 @@ In earlier live games this method survived 72 turns (still alive at a time limit
 
 ### The simple strategies
 **Top block**, **Tightest pair**, **Near a wall**, **Random aim** and **Mix** use only what a player can see and no simulator; they are there for comparison.
+
+## What the page shows while it plays
+- **Speed.** You choose a speed (up to "fastest this device can"); the page shows separately the speed in use. Shots run faster by computing more of the same fixed game frames per screen refresh; aiming and menus stay at normal speed. In a 14-turn check the predicted damage was exact on every shot at both normal and fastest speed; whole games cannot be compared turn by turn, because new blocks appear in random places.
+- **Thinking display.** The scorer's view of all aims, every shot the physics tries (red = loses, gold = extra ball), and the choice. It only draws.
+- **Prediction accuracy, exploring tools and machine readings**, with the formulas. A page can only measure some things about your device; temperature and processor load appear only with a helper running on the same computer.
+- **The log** is kept on your device across refreshes, can be downloaded, opened again for analysis, or erased.
 
 ## What it is not
 - **Real time only.** The game runs at its normal speed; speeding it up would change its physics.

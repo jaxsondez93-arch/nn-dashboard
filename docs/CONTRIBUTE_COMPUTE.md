@@ -27,7 +27,7 @@ A live panel in the dashboard's style: speed now and time per shot, shots done (
 ## What the visitor agrees to
 The box says it plainly: the device is used to compute training data for the neural network aim model; it uses battery and warms up while the page is open; results are sent automatically; the visitor is not shown results and cannot edit them in the page; it resumes on later visits until unticked.
 - It runs only while the page is open and visible. Unticking stops it.
-- Sent: a task number and two numbers per shot. No name, account, device details or location. The relay (ntfy.sh) sees the visitor's internet address.
+- Sent: a task number and three numbers per shot (damage, margin to losing, extra balls collected). No name, account, device details or location. The relay (ntfy.sh) sees the visitor's internet address.
 - **Honest limit:** nothing running in someone's browser can be hidden from that person. A technical visitor can inspect or alter what their own device sends. That is why results are **checked by recomputation**, not trusted.
 - If no collector is configured, the box is disabled and no device is used.
 

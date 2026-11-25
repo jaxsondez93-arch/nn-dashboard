@@ -71,7 +71,13 @@ class H(http.server.BaseHTTPRequestHandler):
             return self._send(400, b"{}", "application/json")
         self._send(404, b"not found", "text/plain")
 
+    def _local_name(self):
+        """Without a login, the request must be addressed to this machine by name; otherwise a web page could point its own name here and read the data (DNS rebinding)."""
+        return self.headers.get("Host", "") in [f"{h}:{self.server.server_port}" for h in ("127.0.0.1", "localhost", "[::1]")]
+
     def do_GET(self):
+        if settings.noauth and not self._local_name():
+            return self._send(403, b"forbidden", "text/plain")
         u = urllib.parse.urlparse(self.path)
         if u.path == "/auth/challenge":
             return self._send(200, json.dumps({"nonce": AUTH.challenge()}).encode(), "application/json")

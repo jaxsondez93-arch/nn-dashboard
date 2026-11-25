@@ -15,13 +15,13 @@ for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
   if (!line.includes("{")) continue; total++; const r = parse(line);
   if (!r || !Number.isInteger(r.u) || r.u < 0 || r.u >= units.length || !Array.isArray(r.d) || !Array.isArray(r.m)) { bad++; continue; }
   const [k, start] = units[r.u], board = data.boards[k], aims = T.aimsOf(board, start);
-  if (r.d.length !== aims.length || r.m.length !== aims.length || !r.d.every((x) => Number.isInteger(x) && x >= 0)) { bad++; continue; }
+  if (r.d.length !== aims.length || r.m.length !== aims.length || !r.d.every((x) => Number.isInteger(x) && x >= 0) || (r.k !== undefined && !(Array.isArray(r.k) && r.k.length === aims.length))) { bad++; continue; }      // k (pickups) is absent from older pages
   if (seen.has(r.u)) { dup++; continue; }
   const idx = aims.map((_, i) => i); if (SAMPLE > 0) { for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; } idx.length = Math.min(SAMPLE, idx.length); }
-  let wrong = 0; for (const i of idx) { const [d, m] = T.simulateAim(sim, board, px[aims[i]]); checked++; if (d !== r.d[i] || m !== r.m[i]) { wrong++; r.d[i] = d; r.m[i] = m; } }      // a recomputed value always replaces the one received
+  let wrong = 0; for (const i of idx) { const [d, m, got] = T.simulateAim(sim, board, px[aims[i]]); checked++; if (d !== r.d[i] || m !== r.m[i] || (r.k && got !== r.k[i])) { wrong++; r.d[i] = d; r.m[i] = m; if (r.k) r.k[i] = got; } }      // a recomputed value always replaces the one received
   differ += wrong; const easy = board.n === 1 && !board.p.length, ok = wrong <= (easy ? 1 : Math.max(1, Math.floor(idx.length * 0.15)));      // browsers occasionally disagree on a shot
   if (!ok) { bad++; continue; }
-  seen.set(r.u, { u: r.u, board: k, aims, d: r.d, m: r.m });
+  seen.set(r.u, { u: r.u, board: k, aims, d: r.d, m: r.m, k: r.k });
 }
 fs.writeFileSync(OUT, Array.from(seen.values(), (v) => JSON.stringify(v)).join("\n") + (seen.size ? "\n" : ""));
 console.log(`received ${total}: accepted ${seen.size} units (${Array.from(seen.values()).reduce((a, v) => a + v.d.length, 0)} shots), rejected ${bad}, repeats ${dup}; recomputed ${checked} shots, ${differ} differed -> ${OUT}`);

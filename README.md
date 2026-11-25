@@ -13,7 +13,7 @@ It reads training logs, checkpoints and systemd status from directories you conf
 
 **New here? Start with [In plain English](docs/PLAIN_ENGLISH.md)** (what this is, a guided tour, a glossary and a pop-culture decoder, no software background needed).
 
-**Documentation:** [version history with screenshots](docs/VERSION_HISTORY.md) · [what we learned](docs/LEARNINGS.md) · [results](docs/RESULTS.md) · [how it works](docs/ARCHITECTURE.md) · [how to read the charts](docs/HOW_TO_READ_THE_CHARTS.md) · [the story so far](docs/STORY.md) · [security notes](SECURITY.md) · [contributing](CONTRIBUTING.md)
+**Documentation:** [version history with screenshots](docs/VERSION_HISTORY.md) · [what we learned](docs/LEARNINGS.md) · [results](docs/RESULTS.md) · [how it works](docs/ARCHITECTURE.md) · [how to read the charts](docs/HOW_TO_READ_THE_CHARTS.md) · [research to borrow from](docs/RESEARCH.md) · [the story so far](docs/STORY.md) · [security notes](SECURITY.md) · [contributing](CONTRIBUTING.md)
 
 
 ## Try it in 30 seconds (no data needed)

@@ -12,11 +12,11 @@ onmessage = async (e) => {
   if (e.data.duty) duty = Math.min(1, Math.max(0.01, e.data.duty));
   if (e.data.cmd !== "unit") return;
   try {
-    const R = await ready, u = e.data.unit, [k, start] = R.units[u], board = R.boards[k], aims = NNTasks.aimsOf(board, start), d = [], m = [];
+    const R = await ready, u = e.data.unit, [k, start] = R.units[u], board = R.boards[k], aims = NNTasks.aimsOf(board, start), d = [], m = [], k2 = [];
     for (let i = 0; i < aims.length; i++) {
-      const t0 = performance.now(), r = NNTasks.simulateAim(R.sim, board, R.pixels[aims[i]]), ms = performance.now() - t0; d.push(r[0]); m.push(r[1]);
+      const t0 = performance.now(), r = NNTasks.simulateAim(R.sim, board, R.pixels[aims[i]]), ms = performance.now() - t0; d.push(r[0]); m.push(r[1]); k2.push(r[2]);
       postMessage({ type: "shot", ms }); await sleep(ms * (1 / duty - 1));            // reads the latest setting each shot
     }
-    postMessage({ type: "unit", result: { u, d, m } });
+    postMessage({ type: "unit", result: { u, d, m, k: k2 } });
   } catch (err) { postMessage({ type: "error", message: String(err && err.stack || err) }); }
 };
