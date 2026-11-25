@@ -1,42 +1,22 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
-<title>Lend a phone · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb"></head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Lend your processor · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb">
+<style>.consent { display:flex; gap:.8rem; align-items:flex-start; font-size:1.05rem; } .consent input { width:1.5rem; height:1.5rem; margin-top:.15rem; flex:none; } .big { font-size:2.4rem; font-weight:700; font-variant-numeric:tabular-nums; } .dot { display:inline-block; width:.7rem; height:.7rem; border-radius:50%; background:var(--muted); margin-right:.4rem; } .on .dot { background:var(--ok); }</style></head>
 <body>
-<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="../play/">Watch the bot play</a><a href="../yourself/">Play it yourself</a><a href="./">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a><a href="../docs/README.html">Docs</a></nav></header>
+<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="../play/">Watch the bot play</a><a href="../yourself/">Play it yourself</a><a href="./">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
 <main>
 <h1>Lend your processor</h1>
-<p>Run a small, <b>synthetic</b> experiment in your browser, and, only if you choose, share the answer. Your device does the arithmetic; <b>nothing leaves it unless you tap Share</b>.</p>
-
-<section class="lab" id="safe"><h2>Is it safe? What exactly happens?</h2>
-<ul>
-<li><b>It only runs while this page is open.</b> No install, no account, no permissions, no camera, microphone, location or files. It stops if you leave, lock the screen or press Stop.</li>
-<li><b>The page cannot send data anywhere.</b> Its security policy blocks every connection except to this site itself. The only way anything leaves your device is you tapping <i>Share</i>, which opens a public GitHub page that <i>you</i> then submit (or you copy the text yourself).</li>
-<li><b>What a result contains:</b> a work-unit number, four whole numbers (the experiment's totals) and a checksum. No device details, no name, no location.</li>
-<li><b>Nobody has to trust you or me.</b> Every unit is deterministic: anyone can recompute it and check it. Wrong or made-up results are rejected automatically.</li>
-<li><b>The cost is battery and warmth.</b> The default is Gentle (about a quarter of one core), the session stops after 5 minutes unless you choose otherwise, and it pauses when this tab is hidden or the battery is low (where your browser reports it). If your phone feels warm, press Pause.</li>
-<li><b>What it is for:</b> a made-up version of the aim-search game: <i>how much does a decent hunch help, depending on how many tests you can afford and how good the hunch is?</i> It does <b>not</b> run the real game and is not a serious research workload. Read <a href="../docs/CONTRIBUTE_COMPUTE.html">the honest details</a>.</li>
-</ul></section>
-
-<section class="lab" id="run"><h2>Run it</h2>
-<div class="controls"><label><input type="checkbox" id="consent"> I understand this uses my device's processor and battery while this page is open.</label></div>
-<div class="controls"><label>intensity <select id="duty"><option value="0.25" selected>Gentle (25%)</option><option value="0.5">Medium (50%)</option><option value="1">Hard (100%, gets warm)</option></select></label>
-<label>stop after <select id="cap"><option value="1">1 minute</option><option value="5" selected>5 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="0">until I press Stop</option></select></label></div>
-<div class="controls"><label><input type="checkbox" id="auto"> Start by itself whenever I open this page (and run until I press Stop)</label></div>
-<div class="controls"><button class="small" id="start" disabled>Start</button> <button class="small" id="pause" disabled>Pause</button> <button class="small" id="stop" disabled>Stop</button></div>
-<progress id="bar" value="0" max="100" style="width:100%;height:1.1rem"></progress>
-<div class="readout" id="status">Tick the box to begin.</div>
-<div class="readout" id="stats"></div></section>
-
-<section class="lab" id="mine"><h2>Your results</h2>
-<div class="readout" id="mine-note">None yet. Finished work collects here; nothing is sent until you press the button.</div>
-<div class="controls"><button class="small" id="submit" disabled>Submit all</button> <button class="small" id="download" disabled>Download them</button> <button class="small" id="check" disabled>Double-check 3 on this device</button> <button class="small" id="clear" disabled>Forget submitted ones</button></div>
-<div class="readout" id="submit-note"></div>
-<p class="note">One press bundles everything you have not sent yet into a single public GitHub issue that you then submit there. Large bundles are copied for you: paste them into the box that opens.</p></section>
-
-<section class="lab" id="community"><h2>What everyone has found so far</h2><p class="note" id="community-note">Loading...</p>
-<canvas id="heat" width="720" height="330" aria-label="Heat map of the average regret of the hunch strategy by budget and hunch quality"></canvas></section>
+<p>Help train our aim model: your device practises shots of the game, thousands of times, and sends back what happened.</p>
+<section class="lab"><label class="consent"><input type="checkbox" id="consent">
+<span><b>I agree that my device will be used to compute training data for your neural network aim model.</b> While this page is open it runs game simulations (using battery and warming the device) and sends the results to the project owner automatically. I will not be shown the results or edit them. This continues on later visits until I untick the box.</span></label></section>
+<section class="lab" id="live"><div id="state"><span class="dot"></span><span id="status">Tick the box to start.</span></div><div class="big" id="count">0</div><div class="note">shots simulated by this device</div><div class="readout" id="sent"></div></section>
+<section class="lab"><h2>The details</h2><ul>
+<li><b>Stop any time:</b> untick the box or close the page. It pauses when the page is hidden or the battery is low and not charging (where your browser reports it), and stops after 30 minutes per visit. It works gently, about a third of one processor core.</li>
+<li><b>What is sent:</b> a task number and, for each practice shot, two numbers (damage done and how close it came to losing). No name, account, device details or location. The results are received by a Google script run by the project owner, so Google sees your internet address, as with any website.</li>
+<li><b>Results are checked, not trusted:</b> the owner re-computes a sample of them. As with any web page, a technically skilled person can inspect what their own browser does; altered results are detected and thrown away.</li>
+<li>No install, no permissions, no camera, microphone, location or files. <a href="../docs/CONTRIBUTE_COMPUTE.html">Full explanation</a>.</li></ul></section>
 </main>
-<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/CONTRIBUTE_COMPUTE.html">how it works</a> · <a href="https://github.com/jaxsondez93-arch/nn-dashboard">source</a></footer>
-<script src="core.js"></script><script src="contribute.js"></script><script src="../register-sw.js"></script>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/CONTRIBUTE_COMPUTE.html">how it works</a></footer>
+<script src="contribute.js"></script><script src="../register-sw.js"></script>
 </body></html>

@@ -9,7 +9,7 @@ It reads training logs, checkpoints and systemd status from directories you conf
 
 **Live site:** the dashboard demo, the playground and the docs as web pages: **https://jaxsondez93-arch.github.io/nn-dashboard/** (installable as an app, works offline). Rebuild it with `python3 tools/build_pages.py site`.
 
-**Lend your processor:** a safe, opt-in volunteer-computing page: https://jaxsondez93-arch.github.io/nn-dashboard/contribute/ ([how it works](docs/CONTRIBUTE_COMPUTE.md)).
+**Lend your processor:** one opt-in tick box and a visitor's device computes training data for the aim model: https://jaxsondez93-arch.github.io/nn-dashboard/contribute/ ([how it works and how to switch collection on](docs/CONTRIBUTE_COMPUTE.md)).
 
 **New here? Start with [In plain English](docs/PLAIN_ENGLISH.md)** (what this is, a guided tour, a glossary and a pop-culture decoder, no software background needed).
 
