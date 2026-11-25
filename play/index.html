@@ -5,23 +5,26 @@
 <style>
 .stage { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; align-items:start; } @media (min-width: 900px) { .stage { grid-template-columns: auto 1fr; } }
 .screen { position:relative; width:100%; max-width:480px; margin:0 auto; background:#000; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
-.screen iframe { position:absolute; left:0; top:0; width:480px; height:853px; border:0; transform-origin:0 0; background:#000; }
+.screen iframe { position:absolute; left:0; top:0; width:480px; height:853px; border:0; transform-origin:0 0; background:#000; pointer-events:none; }   /* the visitor cannot touch the game: only the bot sends it input */
+.screen .shield { position:absolute; inset:0; z-index:2; touch-action:pan-y; }
+.screen .badge { position:absolute; left:.5rem; top:.5rem; z-index:3; background:rgba(0,0,0,.65); color:#fff; font-size:.75rem; padding:.15rem .55rem; border-radius:999px; pointer-events:none; }
 .pill { display:inline-block; padding:.1rem .6rem; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:.9rem; }
 table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding:.25rem .4rem; }
 #missing { display:none; } .bar { height:10px; background:var(--accent); border-radius:4px; }
 </style></head>
 <body>
-<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="./">Watch the bot play</a><a href="../contribute/">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
+<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="./">Watch the bot play</a><a href="../yourself/">Play it yourself</a><a href="../contribute/">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
 <main>
 <h1>Watch the bot play the real game</h1>
 <p>The game runs in this page, on your device. The bot reads the blocks, thinks, taps an aim and logs what happens, including how well its prediction matched what really happened. Nothing is sent anywhere.</p>
 <section class="lab" id="missing"><h2>The game files are not on this copy of the site</h2><p>This page needs the game in <code>play/game/</code>. See <a href="../docs/PLAY.html">how it is set up</a>.</p></section>
 <div class="stage" id="stage">
-  <div><div class="screen" id="screen"><iframe id="game" src="game/index.html?bot=1" title="Falling Ballz" allow="autoplay"></iframe></div>
-  <p class="note" style="text-align:center">You can also play it yourself: pause the bot, then tap.</p></div>
+  <div><div class="screen" id="screen"><iframe id="game" src="game/index.html?bot=1" title="Falling Ballz (the bot is playing; you are watching)" allow="autoplay" tabindex="-1" inert></iframe><div class="shield" aria-hidden="true"></div><span class="badge">bot only · watching</span></div>
+  <p class="note" style="text-align:center">Watch only: your taps do not reach this game. To play, use <a href="../yourself/">Play it yourself</a>.</p></div>
   <div>
     <section class="lab"><h2>The bot</h2>
       <div class="controls"><label>strategy <select id="strategy"><option value="best" selected>Best bot: learned scorer + 30 simulations</option><option value="mix">Mix (a random arm each turn)</option><option value="top">Top block</option><option value="pair">Tightest pair</option><option value="wall">Near a wall</option><option value="random">Random aim</option></select></label></div>
+      <p class="note">The strategy is fixed for the length of a game; a change takes effect when the next game starts.</p>
       <div class="controls"><button class="small" id="start">Start the bot</button> <button class="small" id="stop" disabled>Pause</button> <button class="small" id="dl" disabled>Download the log</button> <span class="pill" id="state">idle</span></div>
       <div class="readout" id="now">Press Start. The first game begins on its own.</div>
       <div class="readout" id="engine">Loading the best bot...</div><p class="note"><b>Best bot</b>: a learned scorer ranks all 781 aims, the game's own physics simulates the 30 most promising (zooming in around the two best), and it never picks a shot it predicts will lose while a surviving one exists. It thinks on your device for a second or a few. The other strategies use no simulator.</p></section>

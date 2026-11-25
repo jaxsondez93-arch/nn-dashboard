@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Play it yourself · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb">
+<style>
+.screen { position:relative; width:100%; max-width:480px; margin:0 auto; background:#000; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.screen iframe { position:absolute; left:0; top:0; width:480px; height:853px; border:0; transform-origin:0 0; background:#000; }
+.score { display:flex; flex-wrap:wrap; justify-content:center; gap:.4rem 1.4rem; margin:.7rem 0; font-variant-numeric:tabular-nums; }
+#missing { display:none; }
+</style></head>
+<body>
+<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="../play/">Watch the bot play</a><a href="./">Play it yourself</a><a href="../contribute/">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
+<main>
+<h1>Play it yourself</h1>
+<p>Just you and the game: tap to aim. Want to see the machine do it? <a href="../play/">Watch the bot play</a>.</p>
+<section class="lab" id="missing"><h2>The game files are not on this copy of the site</h2><p>See <a href="../docs/PLAY.html">how it is set up</a>.</p></section>
+<div id="stage"><div class="score" id="score">Press Play inside the game to begin.</div>
+<div class="screen" id="screen"><iframe id="game" src="../play/game/index.html" title="Falling Ballz" allow="autoplay"></iframe></div></div>
+<p class="note">The game "FALLING BALLZ" is shown here at the site owner's request and is not part of the nn-dashboard source or its licence. See <a href="../docs/PLAY.html">the notice</a>. Your score stays on this device.</p>
+</main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/PLAY.html">how this works</a></footer>
+<script src="yourself.js"></script><script src="../register-sw.js"></script>
+</body></html>
