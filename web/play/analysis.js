@@ -63,7 +63,7 @@
     if (lg && pb && c0) { const list = [["Same rate for any number of balls", c0.aic], ["Model A (logistic)", lg.aic], ["Model B (per ball)", pb.aic]].sort((x, y) => x[1] - y[1]); say(list.map(([n, a], i) => `${i + 1}. ${n}: ${num(a, 1)}`).join("   ")); }
     say(fit ? `Thinking time: seconds = ${num(fit.intercept)} + ${num(fit.slope, 3)} × balls (slope ± ${num(fit.half, 3)}), by least squares.` : "");
   }
-  const soon = () => { clearTimeout(timer); timer = setTimeout(render, 150); };
+  const soon = () => { if (!timer) timer = setTimeout(() => { timer = 0; render(); }, session.length > 300 ? Math.min(30000, session.length * 20) : 150); };      // long games: redraw less often, to save the processor
   window.NNChart = { frame, path, empty, table, el, html, num, signed, pct };
   window.NNAnalysis = { update(turns) { session = turns; if (!loaded) soon(); } };
   $("an-file").addEventListener("change", async (e) => { const file = e.target.files[0]; if (!file) return;

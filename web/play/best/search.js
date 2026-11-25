@@ -10,7 +10,7 @@
   const RISE = 126.0, Y_LOSS = 119.0;
   function outcome(sim, board, pixel) {                                                // simulate one aim on a board the way the training data was made
     const sorted = board.blocks.slice().sort((a, b) => a[0] - b[0]), blocks = sorted.map((b, i) => [i + 1, b[1], b[2], b[3]]), pickups = board.pickups || [];
-    const r = sim.simulate(blocks, pixel, pickups, pickups.length > 0, board.balls || 1);
+    const balls = board.balls || 1, r = sim.simulate(blocks, pixel, pickups, pickups.length > 0, balls, 3000 + 14 * balls);      // one ball leaves every 14 steps, so many balls need a longer limit
     let damage = 0; const alive = []; for (const [u, x, y, hp] of blocks) { const h = r.hits[u] || 0; damage += Math.min(hp, h); if (h < hp) alive.push(y); }
     const lost = alive.length > 0 && Math.min(...alive) - RISE <= Y_LOSS, got = r.pickups_left ? pickups.length - r.pickups_left.length : 0;
     return { damage, lost, got, completed: r.completed };

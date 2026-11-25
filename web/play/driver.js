@@ -85,7 +85,7 @@ async function loop(id) {
       await sleep(150); const l = layoutName(); if (l !== "Game") { res = "left"; break; }
       const s = snapshot(); if (!s) continue; if (s.n9 > 0) { seen = true; continue; }
       if (gameClock() && gameClock().ballFrames > ballsBefore) seen = true;
-      if (seen && settled(s)) { res = s; break; } else if (!seen && performance.now() - tr > 8000) { res = "no_launch"; break; } if (performance.now() - tr > 120000) { res = "stuck"; break; }
+      if (seen && settled(s)) { res = s; break; } else if (!seen && performance.now() - tr > 8000) { res = "no_launch"; break; } if (performance.now() - tr > 120000 + 500 * snap.vars.TotalBall) { res = "stuck"; break; }
     }
     turbo(false);
     if (res === "no_launch") { t--; continue; }
