@@ -27,7 +27,7 @@ def target(src):                                       # repo path of a markdown
 
 GAME_NOTICE = """FALLING BALLZ (Construct 2 HTML5 export): game files shown on this site at the request of the site owner, who has stated that redistribution is permitted.
 These files are NOT part of the nn-dashboard source code and are NOT covered by its MIT licence. No licence for them is claimed here.
-Changes made for hosting: the portal script tag (../../next/next-adapter.js) was removed from index.html, and a blank 1x1 loading-logo.png was added because the game's loader requests that file and it was not among the files. Nothing else was modified.
+Changes made for hosting: the portal script tag (../../next/next-adapter.js) was removed from index.html, and a blank 1x1 loading-logo.png was added because the game's loader requests that file and it was not among the files. A short script was also added that, only when the bot page loads the game (?bot=1), makes it render at pixel density 1 so that aims land exactly. Nothing else was modified.
 To request removal, open an issue on the repository; deleting the play/game folder removes the game from the site.
 """
 
@@ -38,8 +38,20 @@ def add_game(out):
     if not src or not os.path.isfile(os.path.join(src, "index.html")): return False
     dst = out + "/play/game"; shutil.copytree(src, dst, ignore=shutil.ignore_patterns("*.orig", "*.bak*", "sw.js", "__pycache__"))
     page = open(os.path.join(dst, "index.html"), encoding="utf-8-sig").read(); page = page.replace('<script src="../../next/next-adapter.js"></script>', "")
+    # On high-density screens (most phones) the game renders at a rounded size and aims land a fraction off, so the bot's predictions miss. Only when loaded by the bot page (?bot=1) it runs at density 1.
+    page = page.replace("<head>", '<head>\n<script>if (location.search.indexOf("bot=1") >= 0) { try { Object.defineProperty(window, "devicePixelRatio", { get: function () { return 1; } }); } catch (e) {} }</script>', 1)
     open(os.path.join(dst, "index.html"), "w", encoding="utf-8").write(page); open(os.path.join(dst, "NOTICE.txt"), "w").write(GAME_NOTICE)
     import base64; open(os.path.join(dst, "loading-logo.png"), "wb").write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="))   # blank pixel
+    return True
+
+
+def add_engine(out):
+    """The best bot needs the game's Box2D (extracted from its runtime) and a few constants derived from the game. Like the game itself they are added only at build time (NN_ENGINE_DIR)."""
+    src = os.environ.get("NN_ENGINE_DIR"); files = ("box2d.js", "engine_constants.json")
+    if not src or not all(os.path.isfile(os.path.join(src, f)) for f in files): return False
+    dst = out + "/play/best/engine"; os.makedirs(dst)
+    for f in files: shutil.copy(os.path.join(src, f), os.path.join(dst, f))
+    open(os.path.join(dst, "NOTICE.txt"), "w").write("box2d.js is the physics library as extracted from the FALLING BALLZ runtime (a Box2D port); engine_constants.json holds shapes and settings derived from the game.\nThey are hosted with the game, at the site owner's request, and are not part of the nn-dashboard source or its MIT licence. See ../../game/NOTICE.txt.\n")
     return True
 
 
@@ -82,6 +94,7 @@ def build(out):
     shutil.copytree(os.path.join(ROOT, "web/contribute"), out + "/contribute")
     shutil.copytree(os.path.join(ROOT, "web/play"), out + "/play")
     add_game(out)
+    add_engine(out)
     for f in ("index.html", "site.css", "manifest.webmanifest", "register-sw.js"): shutil.copy(os.path.join(ROOT, "web", f), os.path.join(out, f))
     # ---- icons
     try:
@@ -95,7 +108,7 @@ def build(out):
     except ImportError:
         for size in (192, 512): open(f"{out}/icon-{size}.png", "wb").write(b"")
     # ---- service worker (version + file list), .nojekyll
-    core = ["./", "./index.html", "./site.css", "./icon-192.png", "./demo/", "./demo/index.html", "./demo/static/dashboard.css", "./demo/static/dashboard.js", "./playground/", "./playground/index.html", "./playground/playground.js", "./contribute/", "./contribute/index.html", "./contribute/core.js", "./contribute/worker.js", "./contribute/contribute.js", "./contribute/phase_diagram.json", "./register-sw.js", "./play/", "./play/index.html", "./play/bot.js", "./play/driver.js", "./play/pixels781.json"] + [f"./demo/data/{r}.json" for r in RANGES] + ["./docs/PLAIN_ENGLISH.html", "./docs/README.html"]
+    core = ["./", "./index.html", "./site.css", "./icon-192.png", "./demo/", "./demo/index.html", "./demo/static/dashboard.css", "./demo/static/dashboard.js", "./playground/", "./playground/index.html", "./playground/playground.js", "./contribute/", "./contribute/index.html", "./contribute/core.js", "./contribute/worker.js", "./contribute/contribute.js", "./contribute/phase_diagram.json", "./register-sw.js", "./play/", "./play/index.html", "./play/bot.js", "./play/driver.js", "./play/pixels781.json", "./play/best/worker.js", "./play/best/sim.js", "./play/best/features.js", "./play/best/search.js", "./play/best/model.json"] + [f"./demo/data/{r}.json" for r in RANGES] + ["./docs/PLAIN_ENGLISH.html", "./docs/README.html"]
     sw = open(os.path.join(ROOT, "web/sw.js")).read().replace("@@VERSION@@", time.strftime("%Y%m%d%H%M%S")).replace("@@CORE@@", json.dumps(core))
     open(out + "/sw.js", "w").write(sw); open(out + "/.nojekyll", "w").write("")
     return out

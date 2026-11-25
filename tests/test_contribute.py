@@ -17,6 +17,10 @@ PIN = {"v": 1, "cell": 20, "block": 3, "boards": 100, "sums": {"random": 199, "e
 
 @unittest.skipUnless(NODE, "node not installed")
 class Core(unittest.TestCase):
+    def test_bundle_round_trip(self):
+        got = self.js("(()=>{const r=C.makeResult(C.unitFor(20,3),C.runUnit(C.unitFor(20,3)));const b=C.makeBundle([r]);return [b, C.expandBundle(b)[0]]})()")
+        self.assertEqual(got[0], {"v": 2, "units": [[20, 3, 199, 102, 112, 30]]}); self.assertEqual(got[1], PIN)
+
     def js(self, expr):
         r = node(f'const C=require({json.dumps(os.path.join(ROOT, "web/contribute/core.js"))}); console.log(JSON.stringify({expr}))'); self.assertEqual(r.returncode, 0, r.stderr); return json.loads(r.stdout)
 
@@ -62,6 +66,13 @@ class Tools(unittest.TestCase):
         o = json.load(open(out)); self.assertEqual((o["total_units"], o["total_confirmations"], o["rejected"], o["submitted"]), (1, 1, 2, 4))
         cell = o["cells"][20]; self.assertEqual((cell["units"], cell["boards"]), (1, 100)); self.assertAlmostEqual(cell["mean"]["hunch"], 0.30); self.assertEqual(sum(c["units"] for c in o["cells"]), 1)
 
+    def test_a_bundle_counts_every_unit_and_rejects_bad_ones(self):
+        d = tempfile.mkdtemp(); row = [20, 3, 199, 102, 112, 30]; bad = [20, 3, 199, 102, 112, 31]
+        bundle = {"v": 2, "units": [row, row, bad, [1, 2], [999, 0, 1, 1, 1, 1]]}
+        issues = [{"title": "Work unit result bundle (5 units)", "body": "```json\n" + json.dumps(bundle) + "\n```"}]
+        open(d + "/issues.json", "w").write(json.dumps(issues)); out = d + "/o.json"; r = run_tool("aggregate_results.js", d + "/issues.json", "--out", out); self.assertEqual(r.returncode, 0, r.stderr)
+        o = json.load(open(out)); self.assertEqual((o["submitted"], o["total_units"], o["total_confirmations"], o["rejected"]), (5, 1, 1, 3))
+
     def test_aggregator_reads_a_github_issues_dump(self):
         d = tempfile.mkdtemp(); issues = [{"title": "Work unit result 20-3", "body": "text\n```json\n" + json.dumps(PIN) + "\n```\nmore"}, {"title": "Work unit result 1-1", "body": "no result here"}, {"title": "Work unit result 2-2", "body": "```json\n{broken\n```"}, {"title": "Unrelated question", "body": "```json\n" + json.dumps(PIN) + "\n```"}]
         open(d + "/issues.json", "w").write(json.dumps(issues)); out = d + "/o.json"; r = run_tool("aggregate_results.js", d + "/issues.json", "--out", out); self.assertEqual(r.returncode, 0, r.stderr)
@@ -79,7 +90,7 @@ class Page(unittest.TestCase):
         for f in ("worker.js", "contribute.js", "core.js"):
             text = open(os.path.join(ROOT, "web/contribute", f), encoding="utf-8").read()
             for bad in ("XMLHttpRequest", "WebSocket", "sendBeacon", "EventSource", "importScripts(\"http"): self.assertNotIn(bad, text, f)
-        self.assertEqual(open(os.path.join(ROOT, "web/contribute/contribute.js"), encoding="utf-8").read().count("fetch("), 1)
+        self.assertEqual(open(os.path.join(ROOT, "web/contribute/contribute.js"), encoding="utf-8").read().count("fetch("), 1)      # only the community results file
 
 
 if __name__ == "__main__":

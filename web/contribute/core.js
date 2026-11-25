@@ -53,6 +53,9 @@
     if (checksum(r.cell, r.block, r.sums) !== r.check) return { ok: false, reason: "checksum" };
     return { ok: true, reason: "" };
   }
-  const api = { N_AIMS, KINDS, KS, QS, BLOCKS, COUNT, SEED0, makeBoard, choose, regret, unitFor, runBoard, runUnit, checksum, makeResult, validShape, verify };
+  /* A bundle carries many results in one submission: {v: 2, units: [[cell, block, random, even, c2f, hunch], ...]} (about 20 characters per unit). */
+  const makeBundle = (results) => ({ v: 2, units: results.map((r) => [r.cell, r.block, r.sums.random, r.sums.even, r.sums.c2f, r.sums.hunch]) });
+  function expandBundle(b) { if (!b || b.v !== 2 || !Array.isArray(b.units)) return []; return b.units.map((x) => { if (!Array.isArray(x) || x.length !== 6) return null; const sums = { random: x[2], even: x[3], c2f: x[4], hunch: x[5] }; return { v: 1, cell: x[0], block: x[1], boards: COUNT, sums, check: checksum(x[0], x[1], sums) }; }); }
+  const api = { N_AIMS, KINDS, KS, QS, BLOCKS, COUNT, SEED0, makeBoard, choose, regret, unitFor, runBoard, runUnit, checksum, makeResult, validShape, verify, makeBundle, expandBundle };
   root.NNCore = api; if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : globalThis);

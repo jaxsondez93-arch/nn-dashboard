@@ -8,11 +8,14 @@ A synthetic version of the aim-search problem from the rest of the project. A "b
 The grid is 8 budgets (10 to 120 tests) by 6 hunch qualities (0 to 1). Each of the 48 cells is split into 500 *work units* of 100 boards, 24,000 units in all. A unit takes a typical laptop about 0.13 seconds; the whole grid is about 50 minutes of single-core work.
 
 ## Why it is safe
-- **Sandboxed and opt-in.** It runs in a browser background thread (a Web Worker) only while the page is open. It needs no install, account or permission. The visitor must tick a consent box; it stops on Stop, when the tab is hidden, at a session limit (1, 5, 15 or 30 minutes, default 5), and when the battery is below 30% and not charging (where the browser reports battery).
+- **Sandboxed and opt-in.** It runs in a browser background thread (a Web Worker) only while the page is open. It needs no install, account or permission. The visitor must tick a consent box; it stops on Stop, when the tab is hidden, at a session limit (1, 5, 15 or 30 minutes, default 5, or 'until I press Stop'), and when the battery is below 30% and not charging (where the browser reports battery).
 - **Gentle by default.** The worker rests between small chunks so the processor is busy about a quarter of the time (Gentle), half (Medium) or all of it (Hard, which warms a phone).
-- **The page cannot send data anywhere.** Its Content-Security-Policy allows connections only to this site. The one way anything leaves a device is the visitor tapping *Share*, which opens a prefilled public GitHub issue that *they* then submit, or copying the text themselves. We do not read the user agent, location or any identifier.
+- **The page cannot send data anywhere.** Its Content-Security-Policy allows connections only to this site. The one way anything leaves a device is the visitor pressing *Submit all*, which opens a public GitHub issue (prefilled, or with the results copied for pasting when there are many) that *they* then submit; they can also download the results as a file. We do not read the user agent, location or any identifier.
 - **A result is tiny and anonymous:** a unit number, four whole numbers and a checksum.
 - **No trust required.** Every unit is deterministic and uses only addition, subtraction, multiplication, division and comparisons (no exponentials, logarithms, trigonometry or square roots, whose last digits can differ between devices). Anyone can recompute any unit and must get exactly the same four numbers. Wrong or invented results are rejected by recomputation.
+
+## One press for many results
+Finished units collect on the device; one press bundles all unsent ones (up to 2,500 per issue) into a single submission. A visitor can also choose to have the page start by itself on later visits. Submitting without any press at all would need a small server to receive results, which this static site does not have.
 
 ## Checking and collecting results
 ```

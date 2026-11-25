@@ -10,11 +10,11 @@ function candidates(src) {
   const st = fs.statSync(src);
   if (st.isDirectory()) return fs.readdirSync(src).filter((f) => f.endsWith(".json")).map((f) => { try { return JSON.parse(fs.readFileSync(path.join(src, f), "utf8")); } catch (e) { return null; } });
   const data = JSON.parse(fs.readFileSync(src, "utf8")), items = Array.isArray(data) ? data : [data];
-  return items.filter((it) => !(it && typeof it.title === "string" && !/^Work unit result/.test(it.title))).map((it) => { if (it && it.v === 1) return it; const m = it && typeof it.body === "string" && it.body.match(/```json\s*([\s\S]*?)```/); try { return m ? JSON.parse(m[1]) : null; } catch (e) { return null; } });
+  return items.filter((it) => !(it && typeof it.title === "string" && !/^Work unit result/.test(it.title))).map((it) => { if (it && (it.v === 1 || it.v === 2)) return it; const m = it && typeof it.body === "string" && it.body.match(/```json\s*([\s\S]*?)```/); try { return m ? JSON.parse(m[1]) : null; } catch (e) { return null; } });
 }
 const seen = new Map(), cells = Array.from({ length: C.KS.length * C.QS.length }, (_, cell) => ({ cell, K: C.KS[Math.floor(cell / C.QS.length)], q: C.QS[cell % C.QS.length], units: 0, boards: 0, sums: { random: 0, even: 0, c2f: 0, hunch: 0 }, mean: { random: 0, even: 0, c2f: 0, hunch: 0 } }));
 let rejected = 0, confirmations = 0, total = 0;
-for (const r of candidates(src)) {
+for (const r of candidates(src).flatMap((c) => (c && c.v === 2 ? C.expandBundle(c) : [c]))) {     // a bundle counts as its individual units
   total++; if (!r || !C.verify(r).ok) { rejected++; continue; }
   const key = r.cell + "-" + r.block; if (seen.has(key)) { confirmations++; continue; } seen.set(key, true);
   const c = cells[r.cell]; c.units++; c.boards += r.boards; for (const k of C.KINDS) c.sums[k] += r.sums[k];
