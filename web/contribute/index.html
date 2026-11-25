@@ -2,21 +2,55 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://ntfy.sh https://script.google.com https://script.googleusercontent.com; manifest-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Lend your processor · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb">
-<style>.consent { display:flex; gap:.8rem; align-items:flex-start; font-size:1.05rem; } .consent input { width:1.5rem; height:1.5rem; margin-top:.15rem; flex:none; } .big { font-size:2.4rem; font-weight:700; font-variant-numeric:tabular-nums; } .dot { display:inline-block; width:.7rem; height:.7rem; border-radius:50%; background:var(--muted); margin-right:.4rem; } .on .dot { background:var(--ok); }</style></head>
+<style>.consent { display:flex; gap:.8rem; align-items:flex-start; font-size:1.05rem; } .consent input { width:1.5rem; height:1.5rem; margin-top:.15rem; flex:none; } .big { font-size:2.4rem; font-weight:700; font-variant-numeric:tabular-nums; } .dot { display:inline-block; width:.7rem; height:.7rem; border-radius:50%; background:var(--muted); margin-right:.4rem; } .on .dot { background:var(--ok); }
+.powerrow { display:flex; gap:1rem; align-items:center; } .powerrow input { flex:1; height:2.6rem; accent-color:var(--accent); } .powerrow output { font-size:2rem; font-weight:700; min-width:4.2rem; text-align:right; font-variant-numeric:tabular-nums; }
+.switch { display:flex; gap:.7rem; align-items:flex-start; padding:.45rem 0; } .switch input { width:1.35rem; height:1.35rem; flex:none; margin-top:.1rem; } .risk { border-left:4px solid var(--accent2); background:var(--bg); padding:.55rem .8rem; border-radius:8px; }
+/* the "your device" panel, in the dashboard's style */
+.mh { margin-bottom:.2rem; } .mgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.6rem; margin:.6rem 0; }
+.mcard { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:.7rem .85rem; } .mcard h3 { margin:0 0 .2rem; font-size:.74rem; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+.mcard .big { font-size:1.6rem; line-height:1.2; } .mcard .big small { font-size:.8rem; font-weight:500; color:var(--muted); }
+.mrow { display:flex; justify-content:space-between; gap:.5rem; font-size:.85rem; color:var(--muted); } .mrow b { color:var(--ink); font-variant-numeric:tabular-nums; text-align:right; }
+.mcard progress { width:100%; height:.6rem; margin-top:.35rem; }
+.mcard.chart { margin:.7rem 0; } .mcard.chart h3 { font-size:1rem; text-transform:none; letter-spacing:0; color:var(--ink); } .mcard.chart p { margin:.1rem 0 .4rem; font-size:.85rem; color:var(--muted); } .mcard svg { width:100%; height:auto; display:block; }
+.gridline { stroke:var(--line); } .axis { fill:var(--muted); font-size:13px; } .band { fill:var(--ok); opacity:.15; } .fit { stroke:var(--ink); stroke-width:1.5; stroke-dasharray:6 5; }
+.mverdict { margin:.5rem 0; } .verdict { display:block; padding:.55rem .8rem; border-radius:8px; border-left:4px solid var(--muted); background:var(--card); } .verdict.steady, .verdict.faster { border-left-color:var(--ok); } .verdict.slowing { border-left-color:#d98a00; }</style></head>
 <body>
 <header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="../play/">Watch the bot play</a><a href="../yourself/">Play it yourself</a><a href="./">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
 <main>
 <h1>Lend your processor</h1>
 <p>Help train our aim model: your device practises shots of the game, thousands of times, and sends back what happened.</p>
 <section class="lab"><label class="consent"><input type="checkbox" id="consent">
-<span><b>I agree that my device will be used to compute training data for your neural network aim model.</b> While this page is open it runs game simulations (using battery and warming the device) and sends the results to the project owner automatically. I will not be shown the results or edit them. This continues on later visits until I untick the box.</span></label></section>
-<section class="lab" id="live"><div id="state"><span class="dot"></span><span id="status">Tick the box to start.</span></div><div class="big" id="count">0</div><div class="note">shots simulated by this device</div><div class="readout" id="sent"></div></section>
+<span><b>I agree that my device will be used to compute training data for your neural network aim model.</b> While this page is open it runs game simulations, using as much processor power as the setting below allows (which uses battery and warms the device), and sends the results to the project owner automatically. I will not be shown the results or edit them. This continues on later visits until I untick the box.</span></label></section>
+<section class="lab" id="control"><h2>How hard should it work?</h2>
+<div class="powerrow"><input type="range" id="power" min="1" max="100" step="1" value="25" aria-label="Share of all processor cores to use, percent"><output id="power-value">25%</output></div>
+<div class="readout" id="power-effect"></div><div class="note" id="power-note">100% means every processor core your browser reports, fully busy. The graphics chip is not used.</div>
+<h3>Safety switches</h3>
+<label class="switch"><input type="checkbox" id="g-heat" checked><span><b>Heat protection</b>: never above 50%, and ease off if the device starts slowing down.</span></label>
+<label class="switch"><input type="checkbox" id="g-stable" checked><span><b>Stability protection</b>: always keep a core free so the device stays usable.</span></label>
+<label class="switch"><input type="checkbox" id="g-battery" checked><span><b>Battery protection</b>: pause below 30% when not charging (where the browser reports it).</span></label>
+<label class="switch"><input type="checkbox" id="g-time" checked><span><b>Time limit</b>: stop after 30 minutes per visit.</span></label>
+<p class="risk" id="risk" hidden><b>A safety switch is off.</b> Your device may get very hot, drain quickly, freeze, or close this page. Switches turn back on the next time you open the page.</p></section>
+
+<section class="lab" id="live"><div id="state"><span class="dot"></span><span id="status">Tick the box to start.</span></div><div class="readout" id="sent"></div></section>
+<h2 class="mh">Your device</h2><p class="note">Measured on this device and kept on it. It shows how the work is going, not the results.</p>
+<div class="mgrid">
+<div class="mcard"><h3>Speed now</h3><div class="big"><span id="m-speed">–</span> <small>shots/s</small></div><div class="mrow"><span>one shot takes</span><b id="m-ms">–</b></div><div class="mrow"><span>processor cores</span><b id="m-cores">–</b></div></div>
+<div class="mcard"><h3>Your contribution</h3><div class="big"><span id="count">0</span> <small>shots</small></div><div class="mrow"><span>this visit</span><b id="m-visit">–</b></div><div class="mrow"><span>of all the work</span><b id="m-share">–</b></div></div>
+<div class="mcard"><h3>Sent to the project</h3><div class="big"><span id="m-sent">0</span> <small>shots</small></div><div class="mrow"><span>last sent</span><b id="m-last">–</b></div><div class="mrow"><span>queue</span><b id="m-wait">–</b></div></div>
+<div class="mcard"><h3>This visit</h3><div class="big"><span id="m-time">0s</span></div><div class="mrow"><span>time left</span><b id="m-left">–</b></div><progress id="m-cap" value="0" max="100"></progress></div>
+</div>
+<div class="mverdict"><span class="verdict" id="m-verdict">Measuring...</span></div>
+<div class="mcard chart"><h3>Speed</h3><p>Shots per second while working, with the best straight line (dashed) and its 95% band. A falling line usually means the device is warming up.</p><svg id="ch-speed" viewBox="0 0 600 190" role="img"></svg></div>
+<div class="mcard chart"><h3>Time per shot</h3><p>The middle value, in milliseconds, of the time one practice shot takes. Higher = slower. Long shots with many bounces take longer.</p><svg id="ch-ms" viewBox="0 0 600 190" role="img"></svg></div>
+<div class="mcard chart"><h3>Shots done this visit</h3><p>A straight climb means a steady pace.</p><svg id="ch-total" viewBox="0 0 600 190" role="img"></svg></div>
+<div class="mcard chart" id="batt-card" hidden><h3>Battery <small id="m-batt"></small></h3><p>Shown only where the browser reports it.</p><svg id="ch-batt" viewBox="0 0 600 190" role="img"></svg></div>
+
 <section class="lab"><h2>The details</h2><ul>
-<li><b>Stop any time:</b> untick the box or close the page. It pauses when the page is hidden or the battery is low and not charging (where your browser reports it), and stops after 30 minutes per visit. It works gently, about a third of one processor core.</li>
+<li><b>Stop any time:</b> untick the box or close the page. It always pauses when the page is hidden. How hard it works is up to you (the slider, 25% to begin with), and the safety switches are on until you turn one off.</li>
 <li><b>What is sent:</b> a task number and, for each practice shot, two numbers (damage done and how close it came to losing). No name, account, device details or location. The results travel to the project owner through <b>ntfy.sh</b>, a free public message relay, so ntfy.sh sees your internet address, as any website does. The channel is not secret: someone who finds its name could read these numbers or post to it, which is one reason every result is re-checked.</li>
 <li><b>Results are checked, not trusted:</b> the owner re-computes a sample of them. As with any web page, a technically skilled person can inspect what their own browser does; altered results are detected and thrown away.</li>
 <li>No install, no permissions, no camera, microphone, location or files. <a href="../docs/CONTRIBUTE_COMPUTE.html">Full explanation</a>.</li></ul></section>
 </main>
 <footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/CONTRIBUTE_COMPUTE.html">how it works</a></footer>
-<script src="contribute.js"></script><script src="../register-sw.js"></script>
+<script src="power.js"></script><script src="monitor.js"></script><script src="contribute.js"></script><script src="../register-sw.js"></script>
 </body></html>

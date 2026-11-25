@@ -5,9 +5,23 @@ On the **[Lend your processor](https://jaxsondez93-arch.github.io/nn-dashboard/c
 ## What the device computes
 The project has 896 recorded training boards. On each, only about 98 of the 781 possible aims have been simulated; about **612,000** have not. A task is one board and up to 40 of those aims. The device runs the game's own physics (the same browser simulator the bot uses) and records, for each shot, the **damage** done and the **margin to losing** (in rows). Only training boards are published; the validation and test games used to judge the model are never included.
 
+## How hard it works
+A slider from **1% to 100%** sets the share of all the processor cores the browser reports (100% = every core fully busy; 25% to begin with). The page turns that into a number of parallel workers and how busy each is. The graphics chip is not used, and some browsers (notably on iPhones) report fewer cores than the chip has.
+
+Four **safety switches** are on every time the page opens. Turning one off needs a confirmation:
+- **Heat protection**: never above 50%, and ease off if shots start taking clearly longer. A web page cannot read the device's temperature, so slowing down is the only sign it can act on; it is not a guarantee.
+- **Stability protection**: always leave a core free, and use at most 4 workers on phones and 8 elsewhere, since each worker needs memory.
+- **Battery protection**: pause below 30% when not charging (where the browser reports battery level; iPhones do not).
+- **Time limit**: stop after 30 minutes per visit.
+
+With switches off a device can get very hot, drain quickly, freeze or close the page. The page says so while any switch is off.
+
+## What the volunteer sees: "Your device"
+A live panel in the dashboard's style: speed now and time per shot, shots done (this visit, all time on this device, and as a share of all the work), what has been sent, time left in the visit, a speed chart with a trend line and 95% band and a plain-language verdict ("steady", "slowing down", which is often the device warming up), time-per-shot and progress charts, and a battery chart where the browser reports battery level. All of it is measured on the device and stays there; it shows performance, never the result values.
+
 ## What the visitor agrees to
 The box says it plainly: the device is used to compute training data for the neural network aim model; it uses battery and warms up while the page is open; results are sent automatically; the visitor is not shown results and cannot edit them in the page; it resumes on later visits until unticked.
-- It runs only while the page is open and visible, uses about a third of one processor core, pauses when the battery is below 30% and not charging (where the browser reports it), and stops after 30 minutes per visit. Unticking stops it.
+- It runs only while the page is open and visible. Unticking stops it.
 - Sent: a task number and two numbers per shot. No name, account, device details or location. The relay (ntfy.sh) sees the visitor's internet address.
 - **Honest limit:** nothing running in someone's browser can be hidden from that person. A technical visitor can inspect or alter what their own device sends. That is why results are **checked by recomputation**, not trusted.
 - If no collector is configured, the box is disabled and no device is used.
@@ -28,7 +42,7 @@ python3 tools/collect.py web/contribute/collector.json results.jsonl      # poll
 NN_ENGINE_DIR=<engine folder> node tools/check_results.js results.csv --out verified.jsonl
 python3 tools/import_labels.py verified.jsonl board_map.json ~/extra_labels
 ```
-The checker recomputes a random sample of every task (or all shots with `--sample 0`). One-ball boards must match exactly. Boards with several balls or pickups may differ on a small share, because different browsers' maths functions differ in the last digit and chaotic shots amplify it. The importer writes **new** label files into a separate folder and never overwrites existing ones; `board_map.json` (public board number to private board id) stays private.
+The checker recomputes a random sample of every task (or all shots with `--sample 0`). Browsers occasionally disagree about a shot (one differed in about 1,200 in a test, on a one-ball board; the first real phone matched all of its 607), more often on boards with several balls, because maths functions differ between engines in the last digit and chaotic shots amplify it. A task may therefore differ on one shot (one-ball boards) or a small share (others), and every recomputed value replaces the one received. The importer writes **new** label files into a separate folder and never overwrites existing ones; `board_map.json` (public board number to private board id) stays private.
 
 ## How useful is it, really?
 - It is real training data, unlike the earlier toy experiment on this page.

@@ -14,7 +14,8 @@ def node(code):
 
 class Page(unittest.TestCase):
     def test_exactly_one_consent_box_and_it_says_what_happens(self):
-        html = read(C, "index.html"); self.assertEqual(len(re.findall(r'type="checkbox"', html)), 1)
+        html = read(C, "index.html"); self.assertEqual(len(re.findall(r'id="consent"', html)), 1); self.assertNotRegex(html, r'id="consent"[^>]*checked')
+        self.assertEqual(len(re.findall(r'type="checkbox"', html)), 5, "one consent box plus four safety switches")
         for phrase in ("compute training data", "neural network", "automatically", "battery", "untick"): self.assertIn(phrase, html)
 
     def test_no_results_are_shown_or_editable(self):
@@ -44,6 +45,72 @@ class Collector(unittest.TestCase):
         msg = json.dumps({"v": 3, "results": [ok, {"u": -1, "d": [1], "m": [1]}, {"u": 1, "d": [1, 2], "m": [1]}, {"u": 1, "d": ["x"], "m": [1]}, "junk"], "extra": 1})
         self.assertEqual(collect.results_in(msg), [ok])
         for bad in ("", "not json", "[]", json.dumps({"v": 2, "results": [ok]}), json.dumps({"v": 3, "results": "x"})): self.assertEqual(collect.results_in(bad), [])
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class Power(unittest.TestCase):
+    def plan(self, pct, cores, **o):
+        return node(f'const P=require({json.dumps(C + "/power.js")}); console.log(JSON.stringify(P.plan({pct}, {cores}, {json.dumps(o)})))')
+
+    def test_safety_switches_start_on_and_slider_runs_1_to_100(self):
+        html = read(C, "index.html")
+        for i in ("g-heat", "g-stable", "g-battery", "g-time"): self.assertRegex(html, f'id="{i}" checked')
+        self.assertRegex(html, r'id="power" min="1" max="100"'); self.assertIn("window.confirm", read(C, "contribute.js"))
+
+    def test_one_percent_is_one_barely_busy_worker(self):
+        p = self.plan(1, 8); self.assertEqual(p["workers"], 1); self.assertAlmostEqual(p["duty"], 0.08); self.assertAlmostEqual(p["percent"], 1)
+
+    def test_share_is_across_all_cores(self):
+        p = self.plan(50, 8); self.assertEqual((p["workers"], p["duty"]), (4, 1)); p = self.plan(35, 8); self.assertEqual(p["workers"], 3); self.assertAlmostEqual(p["workers"] * p["duty"], 2.8)
+
+    def test_heat_protection_caps_at_half(self):
+        p = self.plan(100, 8); self.assertAlmostEqual(p["percent"], 50); self.assertTrue(any("heat" in w for w in p["why"]))
+
+    def test_everything_off_uses_every_core_fully(self):
+        p = self.plan(100, 8, heat=False, stability=False); self.assertEqual((p["workers"], p["duty"], p["percent"], p["why"]), (8, 1, 100, []))
+
+    def test_stability_keeps_a_core_free_and_limits_phones(self):
+        self.assertEqual(self.plan(100, 4, heat=False)["workers"], 3); self.assertEqual(self.plan(100, 12, heat=False, phone=True)["workers"], 4); self.assertEqual(self.plan(100, 32, heat=False)["workers"], 8); self.assertEqual(self.plan(100, 1, heat=False)["workers"], 1)
+
+    def test_easing_only_acts_with_heat_protection(self):
+        self.assertAlmostEqual(self.plan(40, 10, ease=0.5)["percent"], 20); self.assertAlmostEqual(self.plan(40, 10, ease=0.5, heat=False)["percent"], 40); self.assertAlmostEqual(self.plan(40, 10, ease=0.01)["percent"], 10)
+
+    def test_odd_inputs_are_clamped(self):
+        self.assertEqual(self.plan(0, 4)["asked"], 1); self.assertEqual(self.plan(500, 4)["asked"], 100); self.assertEqual(self.plan(50, 0)["cores"], 2)
+
+    def test_heat_signal(self):
+        got = node(f'const P=require({json.dumps(C + "/power.js")}); const a=(v,n=150)=>Array(n).fill(v); console.log(JSON.stringify([P.easing(a(20),a(30),1), P.easing(a(20),a(21),0.5), P.easing(a(20),a(25),0.8), P.easing(a(20),a(60,10),1)]))')
+        self.assertAlmostEqual(got[0], 0.75); self.assertAlmostEqual(got[1], 0.575); self.assertAlmostEqual(got[2], 0.8); self.assertEqual(got[3], 1)
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class Monitor(unittest.TestCase):
+    def js(self, expr):
+        return node(f'const M=require({json.dumps(C + "/monitor.js")}); console.log(JSON.stringify({expr}))')
+
+    def test_median(self):
+        self.assertEqual(self.js("[M.median([]), M.median([3,1,2]), M.median([4,1,3,2])]"), [None, 2, 2.5])
+
+    def test_trend_finds_the_line(self):
+        t = self.js("(()=>{const r=M.trend([0,1,2,3,4],[1,3,5,7,9]); return [r.slope, r.intercept, r.r2, r.ci]})()")
+        self.assertAlmostEqual(t[0], 2); self.assertAlmostEqual(t[1], 1); self.assertAlmostEqual(t[2], 1); self.assertAlmostEqual(t[3], 0)
+
+    def test_trend_needs_enough_points(self):
+        self.assertIsNone(self.js("M.trend([0,1,2],[1,2,3])")); self.assertIsNone(self.js("M.trend([1,1,1,1],[1,2,3,4])"))
+
+    def test_verdicts(self):
+        x = "[0,1,2,3,4,5,6,7]"
+        self.assertEqual(self.js(f"M.verdict({x},[20,19,18,17,16,15,14,13]).word"), "slowing")
+        self.assertEqual(self.js(f"M.verdict({x},[10,11,12,13,14,15,16,17]).word"), "faster")
+        self.assertEqual(self.js(f"M.verdict({x},[15,16,14,15,16,14,15,15]).word"), "steady")
+        self.assertEqual(self.js("M.verdict([0,1],[5,4]).word"), "measuring")
+
+    def test_a_tiny_drift_is_not_called_slowing(self):
+        self.assertEqual(self.js("M.verdict([0,1,2,3,4,5,6,7],[100,99.8,99.6,99.4,99.2,99,98.8,98.6]).word"), "steady")
+
+    def test_the_panel_never_shows_result_values(self):
+        text = read(C, "monitor.js")
+        for bad in ("result.d", "result.m", ".d[", "damage", "fetch(", "XMLHttpRequest", "sendBeacon"): self.assertNotIn(bad, text)
 
 
 @unittest.skipUnless(NODE, "node not installed")

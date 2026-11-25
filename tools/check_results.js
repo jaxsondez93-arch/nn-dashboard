@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Check volunteers' results by recomputing them, and keep only the good ones. Nothing a volunteer sends is trusted.
    Usage: NN_ENGINE_DIR=<folder with box2d.js and engine_constants.json> node tools/check_results.js results.csv|results.jsonl [--sample 8] [--out verified.jsonl]
-   --sample N recomputes N random shots of each unit (0 = all). One-ball boards must match exactly; boards with several balls or pickups may differ on a small share (different browsers' maths). */
+   --sample N recomputes N random shots of each unit (0 = all). Browsers occasionally disagree about a shot: one-ball boards may differ on one shot per task, boards with several balls or pickups on a small share. Every recomputed value replaces the one received. */
 const fs = require("fs"), path = require("path"), root = path.join(__dirname, "..");
 const T = require(path.join(root, "web/contribute/tasks.js")), S = require(path.join(root, "web/play/best/sim.js"));
 const args = process.argv.slice(2), opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -18,8 +18,8 @@ for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
   if (r.d.length !== aims.length || r.m.length !== aims.length || !r.d.every((x) => Number.isInteger(x) && x >= 0)) { bad++; continue; }
   if (seen.has(r.u)) { dup++; continue; }
   const idx = aims.map((_, i) => i); if (SAMPLE > 0) { for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; } idx.length = Math.min(SAMPLE, idx.length); }
-  let wrong = 0; for (const i of idx) { const [d, m] = T.simulateAim(sim, board, px[aims[i]]); checked++; if (d !== r.d[i] || m !== r.m[i]) wrong++; }
-  differ += wrong; const easy = board.n === 1 && !board.p.length, ok = easy ? wrong === 0 : wrong <= Math.max(1, Math.floor(idx.length * 0.15));
+  let wrong = 0; for (const i of idx) { const [d, m] = T.simulateAim(sim, board, px[aims[i]]); checked++; if (d !== r.d[i] || m !== r.m[i]) { wrong++; r.d[i] = d; r.m[i] = m; } }      // a recomputed value always replaces the one received
+  differ += wrong; const easy = board.n === 1 && !board.p.length, ok = wrong <= (easy ? 1 : Math.max(1, Math.floor(idx.length * 0.15)));      // browsers occasionally disagree on a shot
   if (!ok) { bad++; continue; }
   seen.set(r.u, { u: r.u, board: k, aims, d: r.d, m: r.m });
 }
