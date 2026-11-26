@@ -250,6 +250,8 @@ class Page(unittest.TestCase):
         self.assertIn("pinObject", js)                                                                             # blocks are processed through their pinned label
         self.assertIn("instance_vars[1]", js); self.assertIn("instance_vars[2]", js)
         self.assertIn("progression.json", js)
+        self.assertIn("t[23]", js)                                                                                 # the game draws its on-screen score only when a block dies: building must draw the new one itself
+        self.assertIn("hud-score", js)                                                                             # and the scoreboard above the game shows the built score at once
 
 
 if __name__ == "__main__":
