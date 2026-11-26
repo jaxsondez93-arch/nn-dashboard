@@ -39,24 +39,28 @@ In earlier live games this method survived 72 turns (still alive at a time limit
 - **The log** is kept on your device across refreshes, can be downloaded, opened again for analysis, or erased.
 
 ## Build your own puzzle
-The **Build a puzzle** panel makes the real game build a board you describe, then lets the bot play on from it. Type or paste a scene:
+The **Build a puzzle** panel makes the real game build a board you describe, then lets the bot play on from it. **One number is enough.**
+
+- **Leave a box empty and it is filled in** the way a real game has it at that point: blocks, balls, health and score all grow together (rules and measurements in [GAME_RULES.md](GAME_RULES.md)). A start score of 38 alone gives a game about 21 turns in: 3 balls, health 8, and a typical board of about 8 blocks.
+- **What you type is never changed.** If you fill in more than one box, the empty ones follow the **average** of what your numbers point to (a score that points to turn 21 and a health that points to turn 37 give turn 29 for everything left empty), and your own numbers stay exactly as typed.
+- The boxes are **start score**, **balls** (how many are fired each turn), **block health** (the health of the newest blocks) and **turn**. **Fill in the rest** shows the whole scene as text, with a line saying what was kept and what was filled in and why; **Another layout** keeps the numbers and changes only where the blocks are. The same numbers always give the same layout.
+- Or write the scene yourself (a partial one is fine; the empty parts are filled in):
 
 ```json
-{ "name": "Example", "score": 0, "balls": 12, "blocks": [[150, 420, 30], [480, 420, 30], [320, 640, 60]] }
+{ "balls": 12, "score": 0, "blocks": [[150, 420, 30], [480, 420, 30], [320, 640, 60]] }
 ```
 
-- **Blocks** are `[x, y, health]`. `x` runs from 60 (left) to 660 (right). `y` runs from 150 (near the top, the danger end: a block this high must be broken at once) to 1270 (the bottom, where new rows appear). Blocks must be at least 115 apart. Up to 40 blocks, health 1 to 99999.
-- **balls** is how many balls are fired each turn (1 to 1000); **score** is where the counter starts. An optional `turn` sets the health that later rows spawn with (the game's rule is about one more every three turns).
+- A block is `[x, y, health]`. `x` runs from 60 (left) to 660 (right). `y` runs from 150 (near the top, the danger end: a block this high must be broken at once) to 1270 (the bottom, where new rows appear). Blocks must be at least 100 apart (the game's own rows of two can be that close); up to 40 blocks, health 1 to 99999, balls 1 to 1000. If you give blocks but no health, the strongest block stands in for it.
 - Every problem with a scene is listed at once, in words. Pickups are not supported yet.
-- **Build it** places the board and leaves the bot paused so you can look; **Build it and start the bot** also starts it. The bot must be paused first, and the log's turn numbers start again from 1.
+- **Build it** places the board and leaves the bot paused so you can look; **Build it and start the bot** also starts it. The bot must be paused first, and the log's turn numbers start again from 1. The game then carries on by its own rules from the numbers you gave: the next row's health follows the turn.
 
-How a built board is made to play like a real one, because it took three things (each found by experiment and confirmed by the shot's predicted damage equalling its real damage):
+How a built board is made to play like a real one, because it took three things (each found by experiment, then explained by the game's own rules and confirmed by the shot's predicted damage equalling its real damage):
 
 1. **The ball count is three variables** that always move together (`ballStart`, `ballEnd`, `TotalBall`); the launch loop uses the first two, so setting only `TotalBall` launches a single ball however many the page believes in.
-2. **Every block has a companion label** (its health text), pinned to it and paired by an id stored in the block. The game processes hits through that label, so a block without one barely takes damage.
+2. **Every block has a companion label** (its health text), pinned to it and paired by an id stored in the block. The game takes health off a block, and scores its destruction, only through that label.
 3. **New objects only exist from the next game tick**, so the page reads the board back and compares it with the scene (blocks within a pixel, same health, same labels, ball count and score) before the bot is allowed to look.
 
-How faithful the result is, checked against the simulator the bot predicts with: on ten random scenes of light blocks (health 1 to 5, one to four balls) the real shot did **exactly** the predicted damage in **10 of 10**. On ten scenes of tough blocks (health 15 to 60) it did in 2 of 10, which matches how the simulator does on ordinary games with tough blocks (long chains of bounces off blocks that need many hits are where it drifts), so a built board behaves like a real one. The game itself is deterministic: the same board and aim gave the same damage on every repeat.
+How faithful the result is, checked against the simulator the bot predicts with: on ten random scenes of light blocks (health 1 to 5, one to four balls) the real shot did **exactly** the predicted damage in **10 of 10**. On ten scenes of tough blocks (health 15 to 60) it did in 2 of 10, which matches how the simulator does on ordinary games with tough blocks (long chains of bounces off blocks that need many hits are where it drifts), so a built board behaves like a real one. A record-game board with 292 balls and health up to 689 did 1201 damage against 1140 predicted. After a built scene's first turn the game spawns the next row with the health its rules give (7 of 7 turns tested, at every point of the 3-turn cycle). The game itself is deterministic: the same board and aim gave the same damage on every repeat.
 
 ## What it is not
 - **Real time only.** The game runs at its normal speed; speeding it up would change its physics.

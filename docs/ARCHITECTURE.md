@@ -56,6 +56,8 @@ One turn, in order: `driver.js` reads the settled board from the running game, a
 | `stats.js` | the statistics (no page needed, so they are tested directly) |
 | `analysis.js`, `explore.js`, `system.js` | the accuracy panel, the exploring tools and the machine readings |
 | `record.json` | the record game, turn by turn |
+| `scene.js` | the "Build a puzzle" panel: checks a scene, fills in what was left empty (nothing entered is changed; several numbers use their average), and makes the game build it |
+| `progression.json` | how a real game progresses, measured from logs of real games; written by `tools/fit_progression.py` and checked against the game's rules in [GAME_RULES.md](GAME_RULES.md) |
 
 ## The choosing rule, in stages
 1. Test the most promising spread-out shots (16 when nothing is near the line, otherwise 30).
