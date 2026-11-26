@@ -1,0 +1,41 @@
+/* The puzzle editor page (puzzle-dev.html). Phone first: the board, then what is selected, then the buttons, then the game; a wide screen puts the board on the left. */
+.ed main { max-width:1100px; }
+.edgrid { display:grid; grid-template-columns:minmax(0,1fr); gap:.2rem; } .edgrid > * { min-width:0; }
+@media (min-width:900px) {
+  .edgrid { grid-template-columns:minmax(0,470px) minmax(0,1fr); gap:.2rem 1.2rem; align-items:start; }
+  #ed-board-card { grid-column:1; grid-row:1 / span 2; } #ed-sel { grid-column:1; grid-row:3 / span 2; }
+  #ed-go { grid-column:2; grid-row:1; } #stage { grid-column:2; grid-row:2; } #ed-nums { grid-column:2; grid-row:3; } #ed-bot { grid-column:2; grid-row:4; }
+}
+.tools { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; margin-bottom:.5rem; }
+.tools button, .ed .row button, .ed .go button { min-height:2.9rem; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; padding:.4rem .5rem; }
+.tools button[aria-pressed="true"] { background:#2f6fdb; border-color:#2f6fdb; color:#fff; font-weight:600; }
+.ed button:disabled { opacity:.55; }
+#ed-board { display:block; width:100%; max-width:440px; height:auto; margin:0 auto; background:#141a26; border-radius:12px; touch-action:pan-y; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+#ed-board:focus-visible { outline:3px solid #58d6ff; outline-offset:2px; }
+#ed-board .thing { touch-action:none; cursor:grab; } #ed-board.adding .bg, #ed-board.aiming .bg { cursor:crosshair; }
+.ed .hint { min-height:2.6em; margin:.4rem 0 .2rem; }
+.issues { list-style:none; margin:.4rem 0 0; padding:0; } .issues li { padding:.35rem .6rem; border-radius:8px; margin:.25rem 0; font-size:.92rem; }
+.issues li.bad { background:#3a1620; color:#ffb4bf; } .issues li.ok { background:#12301f; color:#9fffc4; }
+.fields { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; } .fields label { display:block; font-size:.85rem; color:var(--muted); } .fields label small { display:block; margin-top:.15rem; font-size:.74rem; line-height:1.25; }
+.fields label.wide2 { grid-column:1 / -1; }
+.fields input { display:block; width:100%; box-sizing:border-box; margin-top:.15rem; padding:.6rem .65rem; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); }
+.fields input.invalid, .ed table.log input.invalid { border-color:#e34948; background:#3a1620; }
+.sel3 { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; } .sel3 label { display:block; font-size:.8rem; color:var(--muted); }
+.sel3 input { display:block; width:100%; box-sizing:border-box; margin-top:.15rem; padding:.55rem .5rem; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); }
+.pad { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; margin-top:.6rem; }
+.shotcard { margin-top:.7rem; padding:.6rem .8rem; border:1px solid var(--line); border-radius:12px; } .shotcard dl { display:grid; grid-template-columns:auto 1fr; gap:.15rem .8rem; margin:.3rem 0 0; } .shotcard dt { color:var(--muted); } .shotcard dd { margin:0; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.ed table.log input { width:100%; box-sizing:border-box; min-width:4.5rem; padding:.35rem .4rem; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); }
+.ed table.log button { min-height:2.2rem; padding:.2rem .6rem; }
+#ed-json { width:100%; box-sizing:border-box; font-family:ui-monospace,monospace; font-size:16px; background:var(--code); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:.5rem .7rem; }
+#ed-link { width:100%; box-sizing:border-box; padding:.55rem .65rem; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); font-size:16px; }
+.ed .help li { margin:.35rem 0; }
+.ed [hidden] { display:none !important; }
+.sel-title { margin:.1rem 0 .5rem; font-size:1.1rem; }
+.ed .rowlabel { flex:1 1 100%; margin:0; }
+.ed label.block { display:block; font-size:.85rem; color:var(--muted); } .ed label.block input { margin-top:.2rem; }
+.ed .row > label { flex:1 1 7rem; font-size:.8rem; color:var(--muted); }
+table.log tr.on { background:rgba(88,214,255,.14); }
+.ed .row3 { display:grid; grid-template-columns:1.1fr 1fr 1fr; gap:.5rem; align-items:end; margin-top:.6rem; } .ed .row3 label { font-size:.8rem; color:var(--muted); }
+.ed .row3 select { display:block; width:100%; box-sizing:border-box; min-height:2.9rem; margin-top:.15rem; padding:.55rem; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+.ed .row3 button, .ed .pad button { min-height:2.9rem; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; } .ed .pad button { font-size:1.25rem; }
+.tools button { font-size:15px; padding:.4rem .2rem; }

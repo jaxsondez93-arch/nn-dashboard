@@ -75,6 +75,21 @@ class RealGame(unittest.TestCase):
         stuck = self.run_shot({"score": 0, "balls": 3, "blocks": [[1, 360, 700, 2 ** 54]]}); self.assertEqual(stuck["shot"]["damage"], 0)             # from 2^54 a hit changes nothing
         frozen = self.run_shot({"score": 2 ** 53, "balls": 3, "blocks": [[1, 360, 700, 1]]}); self.assertEqual(frozen["shot"]["destroyed"], 1); self.assertEqual(frozen["vars"]["score"], 2 ** 53)
 
+    def test_the_editor_builds_a_puzzle_fires_a_test_shot_reads_the_board_back_and_undoes(self):
+        page = self.page.context.new_page(); errors = []; page.on("pageerror", lambda e: errors.append(str(e)))
+        base = f"http://127.0.0.1:{self.server.server_address[1]}/play/puzzle-dev.html"
+        page.goto(base, wait_until="load"); page.wait_for_function("() => botReady", timeout=90000)
+        link = page.evaluate("""() => NNEditorCore.encode({ name: "t", numbers: { score: "", balls: "12", health: "", turn: "", counter: "", pickupTimer: "" }, blocks: [{ x: 150, y: 800, hp: 6 }, { x: 570, y: 800, hp: 6 }], pickups: [{ x: 360, y: 600 }], aim: { x: 360, y: 300 } })""")
+        page.goto(base + "#s=" + link, wait_until="load"); page.reload(); page.wait_for_function("() => botReady", timeout=90000)
+        count = lambda kind: page.evaluate("(k) => document.querySelectorAll('#ed-things g[data-kind=' + k + ']').length", kind)
+        self.assertEqual((count("block"), count("pickup")), (2, 1)); self.assertTrue(page.is_disabled("#n-timer"))                              # one pickup is on the board, so the timer is set for you
+        page.click("#ed-build"); page.wait_for_function("() => /Done in|Could not/.test(document.getElementById('scene-status').textContent)", timeout=90000); self.assertIn("Done in", page.inner_text("#scene-status"))
+        page.click("#ed-fire"); page.wait_for_function("() => /Shot done|Could not|The game ended|No ball|did not finish/.test(document.getElementById('scene-status').textContent)", timeout=120000)
+        self.assertIn("Shot done", page.inner_text("#scene-status")); self.assertIn("+1 ball", page.inner_text("#scene-status"))                      # the aim goes straight down onto the pickup
+        page.click("#ed-read"); page.wait_for_timeout(500); self.assertGreaterEqual(count("block"), 2)                                          # the board is one row higher and has its new row
+        page.click("#ed-undo"); page.wait_for_timeout(300); self.assertEqual(count("block"), 2); self.assertFalse(page.is_disabled("#ed-redo"))
+        self.assertEqual(errors, []); page.close()
+
     def test_no_page_errors(self):
         self.assertEqual(self.errors, [])
 

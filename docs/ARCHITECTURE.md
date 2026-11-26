@@ -57,6 +57,9 @@ One turn, in order: `driver.js` reads the settled board from the running game, a
 | `analysis.js`, `explore.js`, `system.js` | the accuracy panel, the exploring tools and the machine readings |
 | `record.json` | the record game, turn by turn |
 | `scene.js` | the "Build a puzzle" panel: checks a scene, fills in what was left empty (nothing entered is changed; several numbers use their average), and makes the game build it |
+| `puzzle.html`, `pz.css` | the light puzzle page for a phone: the builder's number boxes, the game, a bottom status bar (the styles are shared with the editor) |
+| `puzzle-dev.html`, `editor.js`, `editor-core.js`, `editor.css` | the puzzle editor: a tappable board (`editor.js`) over logic that needs no page and is tested on its own (`editor-core.js`: snapping, the game's row shapes, a tap becoming an aim, undo, the share-link format) |
+| `ui.css` | the bottom status bar, the busy marker and text that keeps its box while the bot plays (watch page and both puzzle pages) |
 | `progression.json` | how a real game progresses, measured from logs of real games; written by `tools/fit_progression.py` and checked against the game's rules in [GAME_RULES.md](GAME_RULES.md) |
 
 ## The choosing rule, in stages
