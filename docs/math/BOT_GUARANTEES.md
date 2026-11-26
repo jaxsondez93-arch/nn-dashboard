@@ -11,7 +11,7 @@ This is about the choosing rule in `web/play/best/search.js`. The statements mar
 - **T** is the set of aims the bot tests on this turn. It plays `c`, a highest-ranked aim in T.
 
 The bot builds T in three stages:
-1. **First pass:** 30 aims chosen by the scorer and a short search, plus the last aim.
+1. **First pass:** 30 aims chosen by the scorer and a short search (16 when no block is within three rows of the line), including the last aim.
 2. **Emergency search**, only if every first-pass aim loses: the remaining aims, those pointing at the threatening blocks first, until one survives (then up to 6 neighbours).
 3. **Look-ahead search**, only if no surviving shot so far has `u = 0` and some block needs it: up to 30 more aimed at those blocks, plus neighbours.
 4. **Extra-ball search**, only if the board has a pickup: if no aim so far collects it while surviving, up to `m` more aimed towards it; around a collecting aim, neighbours. At most `m` aims in all (`m = 20`).
@@ -59,6 +59,15 @@ On average the game did **9.2 points less** damage than predicted (± 2.2). A "e
 
 ## How the record game ended (25 November 2026)
 The damage-first bot reached turn 1413 with 199 balls. A block with **7 health** received no hits on turns 1411 and 1412 while the bot did over 500 damage elsewhere. On turn 1413 the simulator predicted exactly 7 hits, none to spare, and the real game fell short. Replaying turns 1411 and 1412 with the look-ahead order destroys that block. This shows the rule would have acted on that block, not how much longer a whole game would last.
+
+## The health balance: what surviving requires
+**Observed rule (record game, all 1,412 new rows):** every new block had health `turn // 3 + 1`. Rows held 1, 2 or 3 blocks (43%, 29%, 28%; mean 1.855) and a new ball appeared every 7 or 8 turns. This is read from one game's data, not proved from the game's code.
+
+**Theorem 5 (proved).** If a block must be destroyed within `L` turns of appearing, then surviving turn `T` requires the total damage done by turn `T` to be at least the total health of all blocks that appeared by turn `T − L`.
+
+*Proof.* Each of those blocks has been on the board for at least `L` turns, so it has been destroyed, which takes damage equal to its health. Damage is not shared between blocks. ∎
+
+**What it means (an estimate, using the observed rule).** New health per turn grows like `1.855 × turn / 3` and balls like `turn / 7.1`. Their ratio settles near **4.4**: to survive indefinitely the bot must average about 4.4 hits per ball per turn. In the record game it did: 4.2 to 4.6 over each block of 200 turns, with new health and damage equal almost turn for turn up to turn 1400. So the board was not slowly filling up, and the loss came from one block the simulator misjudged. How many hits per ball are *possible* has not been established, so no upper limit on survival is proved.
 
 ## Limits: why this is not optimal
 1. **One turn only.** The rank looks at the current shot. Taking the ball instead of more damage may leave a board that cannot be survived next turn. Rules of the form "survive now, then ball, then damage" allow games in which that choice loses while the passed-over shot would have lived on, so no argument from these rules alone can show best long-run play. How often such positions arise here is open.

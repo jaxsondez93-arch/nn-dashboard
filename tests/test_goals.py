@@ -27,6 +27,11 @@ class LookAhead(unittest.TestCase):
             const off=S.chooseAim(sim,sc,px,board,cfg), on=S.chooseAim(sim,sc,px,board,Object.assign({lookahead:true},cfg)); console.log(JSON.stringify([off.predicted, off.urgent, on.index, on.predicted, on.urgent]))""")
         self.assertEqual(got, [50, 7, 406, 12, 0])
 
+    def test_fewer_shots_only_when_nothing_is_near_the_line(self):
+        got = js("""const sc={scoreAll:()=>px.map((_,i)=>-i), aimsToward:()=>[]}, sim={simulate:()=>({hits:{1:1},completed:true,pickups_left:[]})}, cfg={n1:12,rho:16,refine:5,budget:30,calm:16,lookahead:true};
+            const n=(y)=>S.chooseAim(sim,sc,px,{blocks:[[1,100,y,500]],pickups:[],balls:2,turn:1},cfg); console.log(JSON.stringify([n(1100).sims, n(1100).calm, n(560).sims, n(560).calm]))""")
+        self.assertEqual(got, [16, True, 30, False])
+
     def test_survival_still_comes_first(self):
         got = js("""const board={blocks:[[1,100,200,4],[2,300,318,7]],pickups:[],balls:5,turn:9}, sc={scoreAll:()=>px.map((_,i)=>-i), aimsToward:()=>px.map((_,i)=>i)};
             const sim={simulate:(b,p)=>({hits:p[0]===0?{2:7}:{1:4},completed:true,pickups_left:[]})}; const r=S.chooseAim(sim,sc,px,board,{n1:3,rho:10,refine:1,budget:6,lookahead:true,urgent:10}); console.log(JSON.stringify([r.losing, r.index!==0]))""")
