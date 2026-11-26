@@ -7,6 +7,7 @@
      3. get the extra ball: it adds to every later turn. If none of the first shots collects it, up to cfg.extra more are aimed towards it; around a collecting shot, neighbours are tried;
      4. with look-ahead, leave less health two rows further out;
      5. damage.
+   When nothing is within three rows of the line, only cfg.calm shots make up the first search.
    The search is written as a plan that asks for batches of shots to be simulated. One processor or several can answer, and the choice is identical either way. */
 (function (root) {
   "use strict";
@@ -22,7 +23,9 @@
   }
   /* The plan: yields { aims, stage, of } and receives the outcomes of those aims, in the same order. width = how many shots may usefully be asked for at once. */
   function* plan(scorer, pixels, board, cfg, width, onProgress) {
-    const { n1, rho, refine, budget } = cfg, ahead = !!cfg.lookahead, sc = scorer.scoreAll(board);
+    const { n1, rho, refine } = cfg, ahead = !!cfg.lookahead, sc = scorer.scoreAll(board);
+    // fast when calm: with nothing within three rows of the line, fewer shots are tested (cfg.calm of them)
+    const calm = !!cfg.calm && board.blocks.every((b) => rowsLeft(b[2]) > 3), budget = calm ? cfg.calm : cfg.budget;
     if (onProgress) onProgress(0, budget, { scores: Array.from(sc) });                  // progress reports are for display only: they never change the choice
     const order = Array.from({ length: 780 }, (_, i) => i).sort((a, b) => sc[b] - sc[a] || a - b), cache = new Map(), ev = [], have = new Set();
     const threatens = (b) => rowsLeft(b[2]) <= 1, extra = (board.pickups || []).length && scorer.pickupOrder ? cfg.extra || 0 : 0;
@@ -68,7 +71,7 @@
     }
     const plain = pickBest(ev, (i, j) => cache.get(i).damage > cache.get(j).damage), best = pickBest(ev, better), chosen = cache.get(best);
     return { index: best, pixel: pixels[best], predicted: chosen.damage, losing: chosen.lost, collects: chosen.got, urgent: chosen.urgent || 0, threats: targets.length, pickups: (board.pickups || []).length, sims: ev.length, computed: cache.size,
-      searched_all: ev.length >= pixels.length, rescued, first_pass_sims: baseSims, guard_changed: cache.get(plain).lost && !chosen.lost };
+      searched_all: ev.length >= pixels.length, calm, rescued, first_pass_sims: baseSims, guard_changed: cache.get(plain).lost && !chosen.lost };
   }
   const reporter = (onProgress) => { let n = 0; return (req, i, o) => { if (onProgress) onProgress(++n, req.of, { i, damage: o.damage, lost: o.lost, got: o.got, stage: req.stage }); }; };
   /* One processor: simulate each requested shot in turn. */
