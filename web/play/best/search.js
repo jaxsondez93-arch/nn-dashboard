@@ -5,7 +5,7 @@
      2. look ahead (cfg.lookahead): leave as little health as possible on blocks that would be last-chance next turn, so they die while a miss can still be put right. If no tested
         surviving shot clears them all, up to cfg.urgent more are aimed at them;
      3. get the extra ball: it adds to every later turn. If none of the first shots collects it, up to cfg.extra more are aimed towards it; around a collecting shot, neighbours are tried;
-     4. with look-ahead, leave less health two rows further out;
+     4. with look-ahead, leave less health on every row further out too, weight falling off with distance (not just the next row past that);
      5. damage.
    When nothing is within three rows of the line, only cfg.calm shots make up the first search.
    The search is written as a plan that asks for batches of shots to be simulated. One processor or several can answer, and the choice is identical either way. */
@@ -20,7 +20,7 @@
     const sorted = board.blocks.slice().sort((a, b) => a[0] - b[0]), blocks = sorted.map((b, i) => [i + 1, b[1], b[2], b[3]]), pickups = board.pickups || [];
     const balls = board.balls || 1, r = sim.simulate(blocks, pixel, pickups, pickups.length > 0, balls, 3000 + 14 * balls);      // one ball leaves every 14 steps, so many balls need a longer limit
     let damage = 0, urgent = 0, near = 0; const alive = [];
-    for (const [u, x, y, hp] of blocks) { const h = r.hits[u] || 0; damage += Math.min(hp, h); if (h < hp) { alive.push(y); const left = rowsLeft(y); if (left === 1) urgent += hp - h; else if (left === 2) near += hp - h; } }
+    for (const [u, x, y, hp] of blocks) { const h = r.hits[u] || 0; damage += Math.min(hp, h); if (h < hp) { alive.push(y); const left = rowsLeft(y); if (left === 1) urgent += hp - h; else if (left >= 2) near += (hp - h) / left; } }  // every row counts, weight falling off with distance (row 2 counts most of the rest, row 3 less, and on)
     const lost = alive.length > 0 && Math.min(...alive) - RISE <= Y_LOSS, got = r.pickups_left ? pickups.length - r.pickups_left.length : 0;
     return { damage, lost, got, urgent, near, completed: r.completed };
   }
