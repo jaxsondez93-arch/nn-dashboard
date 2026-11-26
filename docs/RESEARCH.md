@@ -72,5 +72,22 @@ Flipping every board left to right looks like free extra data. A check on 360 sh
 
 The reason: in the game's physics the **left wall is bouncier than the right** (0.5 against 0.2). Plain mirrored copies would teach the network wrong answers. Mirroring becomes usable only if the network is told which wall is which.
 
+## Foresight and "fast and slow" reading list
+Titles suggested for the goals **think ahead, predict better, think faster**. Checked by web search on 25 November 2026 (summaries only, full texts not read).
+
+| work | what it is | use here |
+|---|---|---|
+| [Thinking Ahead in Real-Time Search](https://ojs.aaai.org/index.php/ICAPS/article/view/13353), Nau, Kuter and Sefer, 2009 | a planner that looks a fixed number of steps ahead cannot walk into dead ends, if the depth is at least how deep the traps go (for predictable worlds) | **direct**: the reason to look ahead; its guarantee needs a predictable next turn, which this game lacks |
+| [Thinking Fast and Slow in Human and Machine Intelligence](https://cacm.acm.org/research/thinking-fast-and-slow-in-human-and-machine-intelligence), IBM and others, 2025 | a supervisor picks between a fast solver and a slow one | **direct**: spend fewer simulations when nothing is close to the line |
+| [Identifying and Cultivating Superforecasters](https://www.psychologicalscience.org/journals/perspectives/1745691615577794/), Mellers and others, 2015 | careful forecasters give probabilities and keep score on them | give each prediction an error range learned from past misses |
+| [Predictivity of variables](https://pmc.ncbi.nlm.nih.gov/articles/PMC4653162) (the linked article is the authors' related 2015 paper; the 2016 one is PNAS 113(50)), Lo and others | significant variables are not automatically good predictors | when choosing what to feed a model of the simulator's misses |
+| [Thinking as the control of imagination](https://dx.doi.org/10.1007%2Fs00426-009-0237-z), Pezzulo and Castelfranchi, 2009 | thinking as running mental simulations | background; "The value of foresight" is a different paper, by Pezzulo and Rigoli (2011) |
+| [Foresight intelligence in multimodal models](https://arxiv.org/abs/2511.18735), Gong and others, 2025 | tests of long-range anticipation for driving | little direct use |
+| [Fast, slow and artificial](https://papers.ssrn.com/abstract=6097646), Shaw and Nave, 2026 (preprint) | how people lean on AI answers | about people, not the bot |
+| [Fast and slow: a model of creative thinking](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11892090/), Khalil and Brüne, 2025 | neuroscience of the two modes | background |
+| [Nailing Prediction](https://www.econbiz.de/Record/nailing-prediction-experimental-evidence-on-the-value-of-tools-in-predictive-model-development/10014236970), Yue, Hamilton and Bojinov, 2023 | how much software tools matter in prediction contests | little direct use |
+
+Not checked here: Wack (1985) on scenarios, Voros (2003) on foresight frameworks, Clark (2013) on predictive brains, Kahneman and Tversky (1973) on the psychology of prediction.
+
 ## How each idea will be judged
 One idea at a time, against the current best bot, on the development games used before, with the measure and the pass mark written down first. The final test games stay sealed.

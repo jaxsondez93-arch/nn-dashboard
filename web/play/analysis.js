@@ -68,6 +68,7 @@
   window.NNAnalysis = { update(turns) { session = turns; if (!loaded) soon(); } };
   $("an-file").addEventListener("change", async (e) => { const file = e.target.files[0]; if (!file) return;
     try { const d = JSON.parse(await file.text()); if (!Array.isArray(d.turns)) throw new Error("no turns in it"); loaded = { name: file.name, turns: d.turns.slice(0, 20000) }; $("an-note").textContent = ""; } catch (err) { $("an-note").textContent = `Could not read that file: ${err.message}`; loaded = null; } $("an-back").hidden = !loaded; render(); });
+  $("an-record").addEventListener("click", async () => { $("an-note").textContent = "Loading the record game..."; try { const d = await (await fetch("record.json")).json(); loaded = { name: "the record game (turn 1413, score 2620)", turns: d.turns }; $("an-note").textContent = d.note; } catch (err) { $("an-note").textContent = "Could not load the record game."; loaded = null; } $("an-back").hidden = !loaded; render(); });
   $("an-back").addEventListener("click", () => { loaded = null; $("an-file").value = ""; $("an-back").hidden = true; render(); });
   render();
 })();

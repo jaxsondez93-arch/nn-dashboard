@@ -19,18 +19,18 @@ $("speed").addEventListener("change", applySpeed);
 setInterval(() => { applySpeed(); showSpeed(); }, 1000);
 
 /* ---------- the best bot (runs in a background worker so the game stays smooth) ---------- */
-let bot = null, botReady = false, botWaiting = new Map(), botSeq = 0;
+let spare = 1, bot = null, botReady = false, botWaiting = new Map(), botSeq = 0;
 function startBestBot() {
   try { bot = new Worker("best/worker.js"); } catch (e) { engineNote("This browser could not start the best bot."); return; }
   bot.onmessage = (e) => { const m = e.data;
-    if (m.type === "ready") { botReady = true; engineNote("Best bot ready (it runs on this device)."); }
+    if (m.type === "ready") { botReady = true; spare = m.spare || 1; engineNote(`Best bot ready (it runs on this device, with up to ${spare} processor${spare > 1 ? "s" : ""}).`); }
     else if (m.type === "progress") { const w = botWaiting.get(m.id); if (w) { w.heard = Date.now(); if (window.NNThought) NNThought.progress(m.n, m.of, m.info); if (window.NNSystem && m.info && m.n) NNSystem.sim(); if (m.n) say(m.of > 100 ? `danger: searching every aim for a way to survive, ${m.n}/${m.of}` : `thinking ${m.n}/${m.of}`); } }
     else if (m.type === "choice") { const f = botWaiting.get(m.id); botWaiting.delete(m.id); if (f) { if (window.NNThought) NNThought.choose(m.result); f.ok(m.result); } }
     else if (m.type === "error") { if (m.id === undefined) engineNote("The best bot is not available here: " + m.message); else { const f = botWaiting.get(m.id); botWaiting.delete(m.id); if (f) f.fail(new Error(m.message)); } } };
   bot.onerror = () => engineNote("The best bot is not available on this copy of the site (engine files missing).");
 }
 function engineNote(s) { $("engine").textContent = s; }
-function bestChoice(board) { if (window.NNThought) NNThought.start(); return new Promise((ok, fail) => { const id = ++botSeq; const w = { ok, fail, heard: Date.now() }; botWaiting.set(id, w); bot.postMessage({ cmd: "choose", id, board }); const watch = setInterval(() => { if (!botWaiting.has(id)) clearInterval(watch); else if (Date.now() - w.heard > 120000) { clearInterval(watch); botWaiting.delete(id); fail(new Error("timed out")); } }, 5000); }); }      // gives up only after 2 minutes with no progress: an emergency search may be long
+function bestChoice(board) { if (window.NNThought) NNThought.start(board); return new Promise((ok, fail) => { const id = ++botSeq; const w = { ok, fail, heard: Date.now() }; botWaiting.set(id, w); bot.postMessage({ cmd: "choose", id, board, cores: $("power").value === "1" ? 1 : spare }); const watch = setInterval(() => { if (!botWaiting.has(id)) clearInterval(watch); else if (Date.now() - w.heard > 120000) { clearInterval(watch); botWaiting.delete(id); fail(new Error("timed out")); } }, 5000); }); }      // gives up only after 2 minutes with no progress: an emergency search may be long
 const boardFor = (snap, turn) => ({ blocks: snap.blocks.map((b) => [b.uid, b.x, b.y, b.hp]).sort((a, b) => a[0] - b[0]), pickups: snap.pickups.map((p) => [p.x, p.y]), balls: snap.vars.TotalBall, turn });
 function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
@@ -71,13 +71,13 @@ async function loop(id) {
     const snap = snapshot(); if (!settled(snap)) continue;
     if (!inGame) { inGame = true; cur = { n: games.length + 1, turns: [], t0: Date.now(), strategy: $("strategy").value }; t = 0; }     // the strategy is locked for the whole game
     const strategy = cur.strategy; if (strategy === "best" && !botReady) { say("loading the best bot"); continue; }
-    t++; say(`game ${cur.n}, turn ${t}${snap.score === undefined ? "" : `, score ${snap.score}`}`); let pick;
+    t++; if (window.NNHud) NNHud.turn(boardFor(snap, t), snap.score, t); say(`game ${cur.n}, turn ${t}${snap.score === undefined ? "" : `, score ${snap.score}`}`); let pick;
     if (strategy === "best") {
-      try { const r = await bestChoice(boardFor(snap, t)); pick = { arm: r.rescued ? "best+rescue" : r.collects && !r.losing ? "best+ball" : r.guard_changed ? "best+guard" : "best", target: null, pickups: r.pickups, collects: r.collects, rescued: r.rescued, searched_all: r.searched_all, index: r.index, pixel: r.pixel, predicted: r.predicted, think_s: +(r.think_ms / 1000).toFixed(1), sims: r.sims, predicted_losing: r.losing }; }
+      try { const r = await bestChoice(boardFor(snap, t)); pick = { arm: r.rescued ? "best+rescue" : r.collects && !r.losing ? "best+ball" : r.guard_changed ? "best+guard" : "best", target: null, cores: r.cores, urgent: r.urgent, pickups: r.pickups, collects: r.collects, rescued: r.rescued, searched_all: r.searched_all, index: r.index, pixel: r.pixel, predicted: r.predicted, think_s: +(r.think_ms / 1000).toFixed(1), sims: r.sims, predicted_losing: r.losing }; }
       catch (e) { engineNote("The best bot failed on this turn: " + e.message + ". Using a simple aim."); pick = NNExactBot.pickAim("mix", snap.blocks, rng); }
       if (!running || id !== loopId) break; if (layoutName() !== "Game") { t--; continue; } say(`game ${cur.n}, turn ${t}`);
     } else pick = NNExactBot.pickAim(strategy, snap.blocks, rng);
-    const rec = { turn: t, arm: pick.arm, pickups: pick.pickups, collects: pick.collects, rescued: pick.rescued, searched_all: pick.searched_all, target: pick.target, index: pick.index, pixel: pick.pixel, predicted: pick.predicted, think_s: pick.think_s, sims: pick.sims, balls: snap.vars.TotalBall, blocks: snap.blocks.length, hp_before: hpTotal(snap), score: snap.score, board: boardFor(snap, t) }, t0 = performance.now();
+    const rec = { cores: pick.cores, turn: t, arm: pick.arm, pickups: pick.pickups, collects: pick.collects, rescued: pick.rescued, searched_all: pick.searched_all, target: pick.target, index: pick.index, pixel: pick.pixel, predicted: pick.predicted, think_s: pick.think_s, sims: pick.sims, balls: snap.vars.TotalBall, blocks: snap.blocks.length, hp_before: hpTotal(snap), score: snap.score, board: boardFor(snap, t) }, t0 = performance.now();
     const ballsBefore = gameClock() ? gameClock().ballFrames : 0;
     await tapAt(pick.pixel[0], pick.pixel[1], 80); applySpeed(); const used = speedNow(); turbo(true);
     let seen = false, res = null, tr = performance.now();
@@ -111,7 +111,7 @@ function restore() {
   const last = allTurns.length ? allTurns[allTurns.length - 1].game : 0; if (last > games.length) games.push({ game: last, turns: allTurns.filter((t) => t.game === last).length, interrupted: true });      // the page closed mid-game
   if (allTurns.length) render();
 }
-function endGame(layout) { if (!cur) return; setTimeout(save, 0); const last = snapshot(); games.push({ score: last ? last.score : undefined, game: cur.n, turns: cur.turns.length, damage: cur.turns.reduce((a, r) => a + (r.damage || 0), 0), strategy: cur.strategy, secs: Math.round((Date.now() - cur.t0) / 1000), ended_on: layout }); cur = null; render(); }
+function endGame(layout) { if (!cur) return; setTimeout(save, 0); const last = snapshot(); games.push({ score: last ? last.score : undefined, game: cur.n, turns: cur.turns.length, damage: cur.turns.reduce((a, r) => a + (r.damage || 0), 0), strategy: cur.strategy, secs: Math.round((Date.now() - cur.t0) / 1000), ended_on: layout }); if (window.NNHud) NNHud.end(games[games.length - 1]); cur = null; render(); }
 
 /* ---------- screen and telemetry ---------- */
 function render() {

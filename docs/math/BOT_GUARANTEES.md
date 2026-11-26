@@ -6,13 +6,15 @@ This is about the choosing rule in `web/play/best/search.js`. The statements mar
 - A **board** is the blocks (position and number), any extra-ball pickup and the number of balls.
 - **A** is the fixed set of 781 aims.
 - **S** is the simulator. For a board and an aim `a` it returns, deterministically: `L(a)` (1 if a surviving block reaches the loss line, else 0), `g(a)` (pickups collected) and `d(a)` (damage).
-- The **rank** of an aim is the triple `(1 − L, g, d)`, compared first entry first: survive, then the ball, then damage.
+- `u(a)` and `v(a)` are the health left, after the shot, on blocks that would be last-chance next turn, and two rows further out.
+- The **rank** of an aim is `(1 − L, −u, g, −v, d)`, compared first entry first: survive, then leave nothing about to become last-chance, then the ball, then less health two rows out, then damage.
 - **T** is the set of aims the bot tests on this turn. It plays `c`, a highest-ranked aim in T.
 
 The bot builds T in three stages:
 1. **First pass:** 30 aims chosen by the scorer and a short search, plus the last aim.
 2. **Emergency search**, only if every first-pass aim loses: the remaining aims, those pointing at the threatening blocks first, until one survives (then up to 6 neighbours).
-3. **Extra-ball search**, only if the board has a pickup: if no aim so far collects it while surviving, up to `m` more aimed towards it; around a collecting aim, neighbours. At most `m` aims in all (`m = 20`).
+3. **Look-ahead search**, only if no surviving shot so far has `u = 0` and some block needs it: up to 30 more aimed at those blocks, plus neighbours.
+4. **Extra-ball search**, only if the board has a pickup: if no aim so far collects it while surviving, up to `m` more aimed towards it; around a collecting aim, neighbours. At most `m` aims in all (`m = 20`).
 
 ## Theorem 1: nothing tested beats the shot played (proved)
 No aim in T has a higher rank than `c`.
@@ -29,11 +31,13 @@ If some aim in A survives in S, then the shot played survives in S.
 ## Theorem 3: testing more never makes the choice worse (proved)
 For the same board, raising the extra budget `m` never lowers the rank of the shot played.
 
-*Proof.* Stages 1 and 2 do not depend on `m`. Stage 3 walks a fixed sequence of aims and `m` only sets where it stops, so a larger `m` tests every aim a smaller one does, possibly more. A maximum over a larger set is not smaller. ∎
+*Proof.* Stages 1 to 3 do not depend on `m`. Stage 4 walks a fixed sequence of aims and `m` only sets where it stops, so a larger `m` tests every aim a smaller one does, possibly more. A maximum over a larger set is not smaller. ∎
 
-**Corollary (against the earlier bot).** The earlier bot played an aim from the same first pass, so the present bot's shot never ranks below it. It **can** do less damage, when it trades damage for the ball or for survival.
+**Corollary (against the damage-only bot).** That bot played an aim from the same first pass, so the present bot's shot never ranks below it in this order. It **can** do less damage, when it trades damage for survival, for low blocks or for the ball.
 
-The order of stages 2 and 3 matters. With the extra-ball search first, a test on made-up cases found a case where a larger budget gave up a ball, so the emergency search comes first.
+**Several processors (proved by construction, checked by test).** The search asks for batches of shots and only counts them in a fixed order, so the number of processors cannot change the choice.
+
+The order of the stages matters. With the extra-ball search first, a test on made-up cases found a case where a larger budget gave up a ball, so the emergency search comes first.
 
 ## What these proofs assume
 | assumption | status |
@@ -52,6 +56,9 @@ One live game on 25 November 2026, snapshot of its first 197 predicted turns, pl
 | 5 or more | 13% of 168 turns |
 
 On average the game did **9.2 points less** damage than predicted (± 2.2). A "each ball is its own chance" fit gives q = 0.865 per ball (the chance of an exact prediction halving about every 5 balls); it fitted slightly better than a logistic curve. Turns in one game are not independent, and ball count rose along with turn number, so this describes the data and does not prove that balls alone are the cause. Two causes have **not** been ruled out: the browser simulator being wrong for many balls, and the faster speed. **Until this is settled, the proofs above say little about the real game beyond about 4 balls.**
+
+## How the record game ended (25 November 2026)
+The damage-first bot reached turn 1413 with 199 balls. A block with **7 health** received no hits on turns 1411 and 1412 while the bot did over 500 damage elsewhere. On turn 1413 the simulator predicted exactly 7 hits, none to spare, and the real game fell short. Replaying turns 1411 and 1412 with the look-ahead order destroys that block. This shows the rule would have acted on that block, not how much longer a whole game would last.
 
 ## Limits: why this is not optimal
 1. **One turn only.** The rank looks at the current shot. Taking the ball instead of more damage may leave a board that cannot be survived next turn. Rules of the form "survive now, then ball, then damage" allow games in which that choice loses while the passed-over shot would have lived on, so no argument from these rules alone can show best long-run play. How often such positions arise here is open.
