@@ -288,8 +288,8 @@
     const result = { outcome, scoreBefore: before.score, ballsBefore: before.balls, secs: +((performance.now() - t0) / 1000).toFixed(1) };
     if (outcome !== "ok") return result;
     const after = grab(), now = new Map(after.blocks.map((b) => [b.uid, b.hp])); let damage = 0, destroyed = 0;
-    for (const b of before.blocks) { const left = now.has(b.uid) ? now.get(b.uid) : 0; damage += b.hp - left; if (left === 0) destroyed++; }
-    return Object.assign(result, { damage, destroyed, scoreAfter: after.score, ballsAfter: after.balls, ballsGained: after.balls - before.balls });
+    const finalHealth = []; for (const b of before.blocks) { const left = now.has(b.uid) ? now.get(b.uid) : 0; finalHealth.push(left); damage += b.hp - left; if (left === 0) destroyed++; }
+    return Object.assign(result, { damage, destroyed, scoreAfter: after.score, ballsAfter: after.balls, ballsGained: after.balls - before.balls, left: finalHealth });          // left: the health each of the blocks that were there has afterwards (in the order they were built)
   }
   Object.assign(api, { isSettled, capture, fire });
 
