@@ -1,0 +1,22 @@
+/* The puzzle page: small and light, made for a phone. The controls come first and the game right under them, nothing above them changes size, and every input is 16px or bigger
+   (a smaller one makes iPhone Safari zoom in and jump when it is tapped). The status bar lives in ui.css. */
+body.pz main { max-width:720px; margin:0 auto; padding:0 .8rem 1rem; }
+.pz h1 { font-size:1.35rem; margin:.7rem 0 .2rem; } .pz .lab { padding:.8rem; margin:.5rem 0; }
+.pz input, .pz select, .pz textarea, .pz button { font-size:16px; touch-action:manipulation; }
+.pz .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; } .pz .grid2 label { display:block; font-size:.8rem; color:var(--muted); }
+.pz .grid2 input { display:block; width:100%; box-sizing:border-box; margin-top:.15rem; padding:.65rem .7rem; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); }
+.pz .go { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; margin-top:.7rem; }
+.pz .go button, .pz .row button { padding:.8rem .6rem; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; min-height:3rem; }
+.pz .go .primary { background:#2f6fdb; border-color:#2f6fdb; color:#fff; font-weight:600; grid-column:1 / -1; font-size:1.1rem; }
+.pz .go button:disabled, .pz .row button:disabled { opacity:.55; }
+.pz .row { display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin-top:.6rem; } .pz .row:first-child { margin-top:0; } .pz .row button { flex:1 1 7rem; }
+.pz .row label { flex:1 1 9rem; font-size:.8rem; color:var(--muted); } .pz .row select { display:block; width:100%; margin-top:.15rem; padding:.55rem; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+.pz .pill { display:block; text-align:center; flex:1 1 100%; }
+.pz .two { display:grid; grid-template-columns:minmax(0,1fr); grid-template-areas:"panel" "stage" "bot"; gap:.2rem; }
+.pz .screen { aspect-ratio:480 / 853; height:auto; max-width:min(100%, 300px); margin:.4rem auto; }
+.pz .hud { margin:.5rem 0; }
+.pz details { margin:.7rem 0; border:1px solid var(--line); border-radius:12px; padding:.5rem .8rem; } .pz summary { cursor:pointer; padding:.4rem 0; min-height:2.2rem; }
+.pz textarea#scene-text { width:100%; box-sizing:border-box; font-family:ui-monospace,monospace; background:var(--code); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:.5rem .7rem; }
+@media (min-width:900px) { body.pz main { max-width:1040px; } .pz .two { grid-template-columns:minmax(0,1fr) minmax(0,420px); grid-template-areas:"panel stage" "bot stage"; gap:.2rem 1.2rem; align-items:start; } .pz .screen { max-width:420px; } }
+/* the watch page puts the game and its controls side by side from 900px up (a two-column .stage); here the game is alone in its box, so keep it one column or it collapses to nothing */
+.pz .stage { grid-template-columns:minmax(0,1fr); } .pz .screen { width:100%; }
