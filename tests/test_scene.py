@@ -54,6 +54,12 @@ class Validate(Base):
             self.assertIn("errors", self.check(bad), bad)
         self.assertNotIn("errors", self.check({"blocks": [[150.5, 420.25, 5]]}))            # positions may be fractional
 
+    def test_the_score_has_no_upper_limit_but_must_be_a_whole_number(self):
+        for score in (38, 10**9, 10**9 + 1, 10**15, 10**21, 10**30):
+            r = self.check({"score": score, "blocks": [[150, 420, 5]]}); self.assertNotIn("errors", r, score); self.assertEqual(float(r["scene"]["score"]), float(score))
+        for bad in (1.5, -1, float("inf"), float("nan"), "12", True):
+            self.assertIn("errors", self.check({"score": bad, "blocks": [[150, 420, 5]]}), bad)
+
     def test_overlapping_blocks_are_refused_and_named(self):
         r = self.check({"blocks": [[150, 420, 5], [200, 420, 5]]}); self.assertIn("blocks 1 and 2 overlap", r["errors"][0])
         self.assertNotIn("errors", self.check({"blocks": [[260, 420, 5], [360, 420, 5]]}))     # exactly 100 apart: the game's own two-block rows can be this close
@@ -90,6 +96,16 @@ class FillInTheRest(Base):
                 self.assertEqual(sorted(r["kept"]), sorted(combo))
                 self.assertEqual(sorted(x["field"] for x in r["filled"]), sorted({"turn", "score", "balls", "health", "blocks"} - set(combo)))      # exactly the empty ones were filled
 
+    def test_a_very_high_score_is_kept_and_what_is_filled_in_stops_at_the_limits(self):
+        for score in (10**7, 10**15, 10**21):
+            r = self.complete({"score": score}); self.assertNotIn("errors", r, score); s = r["scene"]
+            self.assertEqual(float(s["score"]), float(score))                                                       # the score you typed is never capped
+            self.assertEqual((s["balls"], s["health"]), (1000, 99999))                                              # what a game that far in would have is more than can be built
+            self.assertEqual(sorted(x["field"] for x in r["filled"] if x.get("limited")), ["balls", "health"])      # and the page says it was capped
+            self.assertTrue(all(1 <= b[3] <= 99999 for b in s["blocks"]))
+        r = self.complete({"score": 10**7, "balls": 5}); self.assertEqual((r["scene"]["balls"], r["scene"]["health"]), (5, 99999))     # your own ball count is kept
+        r = self.complete({"score": 3824}); self.assertFalse(any(x.get("limited") for x in r["filled"])); self.assertLess(r["scene"]["balls"], 1000)   # an ordinary late game is not capped
+
     def test_blocks_you_enter_are_kept_exactly_and_the_numbers_still_get_filled(self):
         blocks = [[1, 150, 420, 30], [2, 480, 420, 12], [3, 320, 640, 60]]
         r = self.complete({"blocks": blocks}); self.assertEqual(r["scene"]["blocks"], blocks)
@@ -122,10 +138,24 @@ class FillInTheRest(Base):
         T = (turn_from_score(38) + turn_from_balls(5) + turn_from_health(13)) / 3
         self.assertAlmostEqual(r["turn"], T, places=6); self.assertEqual(r["scene"]["turn"], js_round(T))
 
-    def test_the_strongest_block_counts_as_a_health_number_when_health_is_empty(self):
-        r = self.complete({"blocks": [[150, 420, 30], [480, 420, 12]]}); self.assertEqual(r["estimates"][0]["field"], "the strongest block")
+    def test_the_strongest_block_stands_in_for_a_number_only_when_none_was_entered(self):
+        r = self.complete({"blocks": [[150, 420, 30], [480, 420, 12]]}); self.assertEqual([e["field"] for e in r["estimates"]], ["the strongest block"])
         self.assertAlmostEqual(r["turn"], turn_from_health(30), places=6)
-        r = self.complete({"blocks": [[150, 420, 30]], "health": 4}); self.assertEqual([e["field"] for e in r["estimates"]], ["health"])      # an entered health wins over the blocks
+        r = self.complete({"blocks": [[150, 420, 30]], "health": 4}); self.assertEqual([e["field"] for e in r["estimates"]], ["health"])      # a number you typed decides; the blocks do not dilute it
+        r = self.complete({"blocks": [[150, 420, 5]], "balls": 12}); self.assertEqual([e["field"] for e in r["estimates"]], ["balls"])
+
+    def test_a_thousand_balls_gives_the_score_of_a_game_that_far_in_however_it_is_entered(self):
+        T = turn_from_balls(1000); want = js_round(FIT["score_slope"] * T + FIT["score_intercept"]); self.assertGreater(want, 7000)         # about 13,000: 1000 balls is turn 7100
+        weak_block = {"balls": 1000, "blocks": [[150, 420, 5]]}                                                  # a weak block must not drag the score down
+        example_with_1000 = dict(self.js("console.log(JSON.stringify(S.EXAMPLE))"), balls=1000)     # the example, with its balls changed
+        for partial in ({"balls": 1000}, weak_block, example_with_1000):
+            self.assertEqual(self.complete(partial)["scene"]["score"], want, partial)
+
+    def test_the_example_leaves_the_score_to_be_filled_in_and_a_typed_zero_is_still_kept(self):
+        example = self.js("console.log(JSON.stringify(JSON.parse(S.EXAMPLE_TEXT)))"); self.assertNotIn("score", example)          # a written score would count as entered, and be kept
+        r = self.complete(example); self.assertGreater(r["scene"]["score"], 0); self.assertIn("score", [x["field"] for x in r["filled"]])     # so the score follows the balls
+        self.assertEqual(r["scene"]["balls"], 12); self.assertEqual([b[1:] for b in r["scene"]["blocks"]], [b for b in example["blocks"]])        # the blocks you wrote are kept exactly
+        self.assertEqual(self.complete({"score": 0, "balls": 1000})["scene"]["score"], 0)                          # but a zero you type yourself is yours
 
     def test_nothing_to_go_on_is_an_error(self):
         self.assertIn("at least one", " ".join(self.complete({})["errors"])); self.assertIn("at least one", " ".join(self.complete({"name": "x", "score": ""})["errors"]))

@@ -64,9 +64,9 @@ table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding
       <div class="readout" id="now">Press Start. The first game begins on its own.</div>
       <div class="readout" id="engine">Loading the best bot...</div><p class="note"><b>Best bot</b>: a learned scorer ranks all 781 aims and the game's own physics simulates the most promising ones. It then chooses, in order: survive, break blocks that are about to become last-chance, get the extra ball, do the most damage. If every tested shot would lose, it searches the rest until one survives. It tries fewer shots when nothing is near the line. It thinks on your device; the other strategies use no simulator.</p></section>
     <section class="lab" id="puzzle"><h2>Build a puzzle</h2>
-      <p class="note">The game builds the board you describe, then the bot can play on from it. <b>One number is enough</b>: leave a box empty and it is filled in the way a real game has it at that point (blocks, balls, health and score all grow together). <b>What you type is never changed.</b> Fill in more than one and the empty ones follow the average of what your numbers point to.</p>
+      <p class="note">The game builds the board you describe, then the bot can play on from it. <b>One number is enough</b>: leave a box empty and it is filled in the way a real game has it at that point (blocks, balls, health and score all grow together). <b>What you type is never changed.</b> Fill in more than one and the empty ones follow the average of what your numbers point to. Numbers typed in the boxes always win over the scene box below, and the boxes empty once their numbers are in the scene.</p>
       <div class="controls" style="flex-wrap:wrap;gap:.5rem 1rem">
-        <label>start score <input id="scene-score" inputmode="numeric" placeholder="auto" size="6" style="width:5.5rem"></label>
+        <label>start score <input id="scene-score" inputmode="numeric" placeholder="auto" size="10" style="width:9rem"></label>
         <label>balls <input id="scene-balls" inputmode="numeric" placeholder="auto" size="6" style="width:5.5rem"></label>
         <label>block health <input id="scene-health" inputmode="numeric" placeholder="auto" size="6" style="width:5.5rem"></label>
         <label>turn <input id="scene-turn" inputmode="numeric" placeholder="auto" size="6" style="width:5.5rem"></label>

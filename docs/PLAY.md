@@ -43,14 +43,14 @@ The **Build a puzzle** panel makes the real game build a board you describe, the
 
 - **Leave a box empty and it is filled in** the way a real game has it at that point: blocks, balls, health and score all grow together (rules and measurements in [GAME_RULES.md](GAME_RULES.md)). A start score of 38 alone gives a game about 21 turns in: 3 balls, health 8, and a typical board of about 8 blocks.
 - **What you type is never changed.** If you fill in more than one box, the empty ones follow the **average** of what your numbers point to (a score that points to turn 21 and a health that points to turn 37 give turn 29 for everything left empty), and your own numbers stay exactly as typed.
-- The boxes are **start score**, **balls** (how many are fired each turn), **block health** (the health of the newest blocks) and **turn**. **Fill in the rest** shows the whole scene as text, with a line saying what was kept and what was filled in and why; **Another layout** keeps the numbers and changes only where the blocks are. The same numbers always give the same layout.
-- Or write the scene yourself (a partial one is fine; the empty parts are filled in):
+- The boxes are **start score** (any whole number, no upper limit), **balls** (how many are fired each turn), **block health** (the health of the newest blocks) and **turn**. Numbers typed in the boxes always win over the scene box, and the boxes empty once their numbers are in the scene. 1000 balls on its own gives about turn 7,100: a score near 13,000 and health near 2,400. A score so high that a real game would have more than 1000 balls or health above 99999 fills those in at the limits and says so. **Fill in the rest** shows the whole scene as text, with a line saying what was kept and what was filled in and why; **Another layout** keeps the numbers and changes only where the blocks are. The same numbers always give the same layout.
+- Or write the scene yourself (a partial one is fine; the empty parts are filled in; anything you write counts as entered, so a `"score": 0` stays 0):
 
 ```json
 { "balls": 12, "score": 0, "blocks": [[150, 420, 30], [480, 420, 30], [320, 640, 60]] }
 ```
 
-- A block is `[x, y, health]`. `x` runs from 60 (left) to 660 (right). `y` runs from 150 (near the top, the danger end: a block this high must be broken at once) to 1270 (the bottom, where new rows appear). Blocks must be at least 100 apart (the game's own rows of two can be that close); up to 40 blocks, health 1 to 99999, balls 1 to 1000. If you give blocks but no health, the strongest block stands in for it.
+- A block is `[x, y, health]`. `x` runs from 60 (left) to 660 (right). `y` runs from 150 (near the top, the danger end: a block this high must be broken at once) to 1270 (the bottom, where new rows appear). Blocks must be at least 100 apart (the game's own rows of two can be that close); up to 40 blocks, health 1 to 99999, balls 1 to 1000. If you give blocks and no number at all, the strongest block's health stands in for one; once you have typed any number, that number decides and the blocks do not.
 - Every problem with a scene is listed at once, in words. Pickups are not supported yet.
 - **Build it** places the board and leaves the bot paused so you can look; **Build it and start the bot** also starts it. The bot must be paused first, and the log's turn numbers start again from 1. The game then carries on by its own rules from the numbers you gave: the next row's health follows the turn.
 

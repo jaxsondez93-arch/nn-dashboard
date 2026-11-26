@@ -57,7 +57,7 @@ The builder turns any number you enter into "how far into a real game is this" (
 | score | `(score + 1.83) / (13/7)` |
 | balls | `6.27 + 7.10 × (balls - 1)` |
 | health | `3 × (health - 1) + 1` (the middle of the 3 turns that share a health) |
-| blocks only | the strongest block's health, as health |
+| blocks and no number at all | the strongest block's health, as health (if you typed any number, that number decides and the blocks do not) |
 
 - **What you enter is never changed.** Only empty things are filled.
 - **Several numbers:** the turn used for the empty ones is the **average** of the turns your numbers point to. Enter a score that points to turn 21 and a health that points to turn 37 and the empty ones follow turn 29; both of your numbers stay exactly as typed.
