@@ -9,7 +9,7 @@
   fetch("pixels781.json").then((r) => r.json()).then((d) => { dirs = d.pixels.map(([x, y]) => { const a = Math.atan2(y - LY, x - LX); return [Math.cos(a), Math.sin(a)]; }); }).catch(() => {});
   const reach = (damage) => 90 + 520 * Math.min(1, damage / most);
   const tip = (i, r) => [LX + dirs[i][0] * r, LY + dirs[i][1] * r];
-  const NAMES = { search: "SIMULATING", ball: "HUNTING THE EXTRA BALL", rescue: "DANGER · SEARCHING FOR A WAY TO SURVIVE", threat: "LOOKING AHEAD · BREAKING LOW BLOCKS" };
+  const NAMES = { search: "SIMULATING", ball: "HUNTING THE EXTRA BALL", rescue: "DANGER · SEARCHING FOR A WAY TO SURVIVE", sturdy: "CHECKING THE SHOT IS STURDY", threat: "LOOKING AHEAD · BREAKING LOW BLOCKS" };
   const hue = (b) => (b.lost ? "255,92,92" : b.got ? "255,206,84" : "88,214,255");
   const rank = (b) => (b.lost ? 0 : 1e9) + (b.got || 0) * 1e6 + b.damage;
   function ray(i, r, colour, alpha, width) { const [x, y] = tip(i, r); g.strokeStyle = `rgba(${colour},${alpha})`; g.lineWidth = width; g.beginPath(); g.moveTo(LX, LY); g.lineTo(x, y); g.stroke(); return [x, y]; }

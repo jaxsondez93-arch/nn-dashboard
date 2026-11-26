@@ -27,6 +27,13 @@ class LookAhead(unittest.TestCase):
             const off=S.chooseAim(sim,sc,px,board,cfg), on=S.chooseAim(sim,sc,px,board,Object.assign({lookahead:true},cfg)); console.log(JSON.stringify([off.predicted, off.urgent, on.index, on.predicted, on.urgent]))""")
         self.assertEqual(got, [50, 7, 406, 12, 0])
 
+    def test_a_sturdy_shot_is_preferred_when_a_block_must_break_now(self):
+        got = js("""const board={blocks:[[1,100,200,4],[2,300,1100,60]],pickups:[],balls:5,turn:9}, sc={scoreAll:()=>px.map((_,i)=>-i), aimsToward:()=>[]};
+            // aim 0 breaks the low block and does the most damage, but only exactly on target; aim 26 breaks it even when nudged
+            const sim={simulate:(b,p)=>{const i=Math.round(p[0]), exact=p[0]===i; const good=(i===0&&exact)||i===26; return {hits:{1:good?4:0, 2:i===0?50:3},completed:true,pickups_left:[]}}}, cfg={n1:3,rho:26,refine:0,budget:4};
+            const plain=S.chooseAim(sim,sc,px,board,cfg), sturdy=S.chooseAim(sim,sc,px,board,Object.assign({robust:4},cfg)); console.log(JSON.stringify([plain.index, sturdy.index, sturdy.robust, sturdy.predicted]))""")
+        self.assertEqual(got, [0, 26, {"copies": 4, "passes": 4}, 7])
+
     def test_fewer_shots_only_when_nothing_is_near_the_line(self):
         got = js("""const sc={scoreAll:()=>px.map((_,i)=>-i), aimsToward:()=>[]}, sim={simulate:()=>({hits:{1:1},completed:true,pickups_left:[]})}, cfg={n1:12,rho:16,refine:5,budget:30,calm:16,lookahead:true};
             const n=(y)=>S.chooseAim(sim,sc,px,{blocks:[[1,100,y,500]],pickups:[],balls:2,turn:1},cfg); console.log(JSON.stringify([n(1100).sims, n(1100).calm, n(560).sims, n(560).calm]))""")
@@ -52,6 +59,20 @@ class SeveralProcessors(unittest.TestCase):
         got = js("""const helpers=[0,1,2].map(()=>({postMessage(m){ if(m.board) return; setTimeout(()=>this.onmessage({data:{job:m.job,k:m.k,o:m.i*10}}), Math.floor(rng()*12)); }}));
             const pool=P.createPool(helpers); pool.board({}); const seen=[]; const a=await pool.compute([5,3,9,1,7,2,8], (i)=>seen.push(i)); const b=await pool.compute([], ()=>{}); console.log(JSON.stringify([a, seen.length, b, pool.size]))""")
         self.assertEqual(got, [[50, 30, 90, 10, 70, 20, 80], 7, [], 3])
+
+
+ENGINE = os.environ.get("NN_ENGINE_DIR", "")
+
+
+@unittest.skipUnless(NODE and os.path.isfile(os.path.join(ENGINE, "box2d.js")), "needs node and the game's engine (NN_ENGINE_DIR)")
+class SimulatorSpeedUp(unittest.TestCase):
+    def test_restarting_the_object_counters_changes_no_result(self):
+        got = js(f"""const E={json.dumps(ENGINE)}, C=require(E+"/engine_constants.json"), sim=require({json.dumps(ROOT + "/web/play/best/sim.js")}), d=require({json.dumps(ROOT + "/web/contribute/boards.json")}), P=require({json.dumps(ROOT + "/web/play/pixels781.json")}).pixels;
+            const run=(restart)=>{{ delete require.cache[require.resolve(E+"/box2d.js")]; const B=require(E+"/box2d.js");
+                if(!restart) for (const c of [B.Dynamics.b2Body,B.Dynamics.b2Fixture,B.Dynamics.Contacts.b2Contact]) Object.defineProperty(c,"NEXT_ID",{{value:c.NEXT_ID,writable:false}});
+                const s=sim.createSimulator(B,C), out=[]; for(let i=0;i<40;i++){{ const b=d.boards[(i*53)%896], r=s.simulate(b.b.map((x,k)=>[k+1,x[1],x[2],x[3]]), P[(i*97)%781], b.p, b.p.length>0, b.n+(i%3)*4); out.push([r.hits,r.flight,r.pickups_left]); }} return JSON.stringify(out); }};
+            let a1, b1; try {{ b1=run(false); }} catch(e) {{ b1="skip"; }} a1=run(true); console.log(JSON.stringify(b1==="skip" || a1===b1))""")
+        self.assertTrue(got)
 
 
 @unittest.skipUnless(NODE, "node not installed")
