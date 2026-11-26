@@ -23,8 +23,19 @@ table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding
 <style>#mind { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:1; background:transparent; border:0; border-radius:0; }   /* see-through: the game is underneath */</style>
 <style>.hud { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; margin:.8rem 0; } .hud .stat, .hud .danger, .hud .records { background:linear-gradient(160deg,#0d1622,#16263c); color:#dbe7f5; border:1px solid rgba(88,214,255,.35); border-radius:12px; padding:.55rem .75rem; box-shadow:0 0 18px rgba(88,214,255,.12) inset; }
 .hud span { display:block; font:600 .7rem ui-monospace,monospace; letter-spacing:.14em; text-transform:uppercase; color:#8fe6ff; } .hud strong { display:inline-block; font:700 clamp(1.25rem,6.4vw,2rem) ui-monospace,monospace; text-shadow:0 0 12px rgba(88,214,255,.55); } .hud strong.bump { animation:bump .45s ease; } @keyframes bump { 40% { transform:scale(1.12); color:#9fffc4; } }
-.hud .danger, .hud .records { grid-column:1 / -1; } .hud .bars { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin:.35rem 0; } .hud .bars i { height:.7rem; border-radius:4px; background:#25364f; }
-.danger[data-level="4"] .bars i:nth-child(1) { background:#4cc38a; } .danger[data-level="3"] .bars i:nth-child(-n+2) { background:#ffd750; } .danger[data-level="2"] .bars i:nth-child(-n+3) { background:#ff9632; } .danger[data-level="1"] .bars i { background:#ff4646; animation:alarm .6s infinite alternate; } @keyframes alarm { to { opacity:.35; } } .danger[data-level="1"] b { color:#ff8a8a; }
+.hud .danger, .hud .records { grid-column:1 / -1; } .hud .bars { display:grid; grid-template-columns:repeat(10,1fr); gap:4px; margin:.35rem 0; } .hud .bars i { height:.7rem; border-radius:4px; background:#25364f; }
+/* One tab per real layer, 1 shot away up to the farthest possible (10). The nearer the danger, the more tabs light up (level 1 = every tab, red, alarming); the farther out, the fewer light up
+   and the cooler the colour — but even the farthest tracked layer (level 10) still lights one tab. It is never just "safe": there is always a nearest block, however many shots off. */
+.danger[data-level="1"] .bars i { background:#ff4646; animation:alarm .6s infinite alternate; } @keyframes alarm { to { opacity:.35; } } .danger[data-level="1"] b { color:#ff8a8a; }
+.danger[data-level="2"] .bars i:nth-child(-n+9) { background:#ff6b46; }
+.danger[data-level="3"] .bars i:nth-child(-n+8) { background:#ff9632; }
+.danger[data-level="4"] .bars i:nth-child(-n+7) { background:#ffb94a; }
+.danger[data-level="5"] .bars i:nth-child(-n+6) { background:#ffd750; }
+.danger[data-level="6"] .bars i:nth-child(-n+5) { background:#c9e05e; }
+.danger[data-level="7"] .bars i:nth-child(-n+4) { background:#8fd97a; }
+.danger[data-level="8"] .bars i:nth-child(-n+3) { background:#5fcf8f; }
+.danger[data-level="9"] .bars i:nth-child(-n+2) { background:#4cc3a3; }
+.danger[data-level="10"] .bars i:nth-child(-n+1) { background:#4c8fc3; }
 .hud .records { font-size:.85rem; } .toast { position:fixed; left:50%; top:1rem; z-index:60; transform:translate(-50%,-180%); background:#0d1622; color:#9fffc4; border:1px solid #4cc38a; border-radius:999px; padding:.6rem 1.2rem; font:700 1rem ui-monospace,monospace; box-shadow:0 0 24px rgba(76,195,138,.5); transition:transform .45s cubic-bezier(.2,1.4,.4,1); pointer-events:none; white-space:nowrap; visibility:hidden; } .toast.show { transform:translate(-50%,0); visibility:visible; }
 @media (min-width:900px) { .hud { grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,2fr) minmax(0,2.4fr); } .hud .danger, .hud .records { grid-column:auto; } }
 @media (prefers-reduced-motion: reduce) { .hud strong.bump, .danger[data-level="1"] .bars i { animation:none; } .toast { transition:none; } }</style>
@@ -36,7 +47,7 @@ table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding
 <p>The game runs in this page, on your device. The bot reads the blocks, thinks, taps an aim and logs what happens, including how well its prediction matched what really happened. Nothing is sent anywhere.</p>
 <section class="lab" id="missing"><h2>The game files are not on this copy of the site</h2><p>This page needs the game in <code>play/game/</code>. See <a href="../docs/PLAY.html">how it is set up</a>.</p></section>
 <section class="hud" id="hud" aria-label="Live scoreboard"><div class="stat"><span>turn</span><strong id="hud-turn">0</strong></div><div class="stat"><span>score</span><strong id="hud-score">0</strong></div><div class="stat"><span>balls</span><strong id="hud-balls">1</strong></div>
-<div class="danger" id="hud-danger" data-level="4"><span>danger</span><div class="bars"><i></i><i></i><i></i><i></i></div><b id="hud-danger-text">waiting</b></div><div class="records"><div id="hud-best"></div><div id="hud-record"></div></div></section>
+<div class="danger" id="hud-danger" data-level="10"><span>danger</span><div class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><b id="hud-danger-text">waiting</b></div><div class="records"><div id="hud-best"></div><div id="hud-record"></div></div></section>
 <div class="toast" id="hud-toast" role="status" aria-live="polite"></div>
 <div class="stage" id="stage">
   <div><div class="screen" id="screen"><iframe id="game" src="game/index.html?bot=1" title="Falling Ballz (the bot is playing; you are watching)" allow="autoplay" tabindex="-1" inert></iframe><canvas id="mind" width="480" height="853" aria-hidden="true"></canvas><div class="shield" aria-hidden="true"></div><span class="badge">bot only · watching</span></div>
