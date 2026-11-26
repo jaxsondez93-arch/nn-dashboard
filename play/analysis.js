@@ -63,11 +63,12 @@
     if (lg && pb && c0) { const list = [["Same rate for any number of balls", c0.aic], ["Model A (logistic)", lg.aic], ["Model B (per ball)", pb.aic]].sort((x, y) => x[1] - y[1]); say(list.map(([n, a], i) => `${i + 1}. ${n}: ${num(a, 1)}`).join("   ")); }
     say(fit ? `Thinking time: seconds = ${num(fit.intercept)} + ${num(fit.slope, 3)} × balls (slope ± ${num(fit.half, 3)}), by least squares.` : "");
   }
-  const soon = () => { clearTimeout(timer); timer = setTimeout(render, 150); };
+  const soon = () => { if (!timer) timer = setTimeout(() => { timer = 0; render(); }, session.length > 300 ? Math.min(30000, session.length * 20) : 150); };      // long games: redraw less often, to save the processor
   window.NNChart = { frame, path, empty, table, el, html, num, signed, pct };
   window.NNAnalysis = { update(turns) { session = turns; if (!loaded) soon(); } };
   $("an-file").addEventListener("change", async (e) => { const file = e.target.files[0]; if (!file) return;
     try { const d = JSON.parse(await file.text()); if (!Array.isArray(d.turns)) throw new Error("no turns in it"); loaded = { name: file.name, turns: d.turns.slice(0, 20000) }; $("an-note").textContent = ""; } catch (err) { $("an-note").textContent = `Could not read that file: ${err.message}`; loaded = null; } $("an-back").hidden = !loaded; render(); });
+  $("an-record").addEventListener("click", async () => { $("an-note").textContent = "Loading the record game..."; try { const d = await (await fetch("record.json")).json(); loaded = { name: "the record game (turn 1413, score 2620)", turns: d.turns }; $("an-note").textContent = d.note; } catch (err) { $("an-note").textContent = "Could not load the record game."; loaded = null; } $("an-back").hidden = !loaded; render(); });
   $("an-back").addEventListener("click", () => { loaded = null; $("an-file").value = ""; $("an-back").hidden = true; render(); });
   render();
 })();
