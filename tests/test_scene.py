@@ -45,9 +45,18 @@ class Validate(Base):
         text = " ".join(r["errors"]); [self.assertIn(w, text) for w in ("balls", "score", "block 1", "block 2", "block 3")]
 
     def test_the_limits_are_inclusive_and_exact(self):
-        self.assertNotIn("errors", self.check({"balls": 1000, "blocks": [[60, 150, 1], [660, 1270, 99999]]}))
-        for bad in ({"balls": 1001, "blocks": [[150, 420, 5]]}, {"blocks": [[59, 420, 5]]}, {"blocks": [[661, 420, 5]]}, {"blocks": [[150, 149, 5]]}, {"blocks": [[150, 1271, 5]]}, {"blocks": [[150, 420, 100000]]}):
+        self.assertNotIn("errors", self.check({"balls": 7, "blocks": [[60, 150, 1], [660, 1270, 5]]}))                      # the edges of the field are inside
+        for bad in ({"blocks": [[59, 420, 5]]}, {"blocks": [[661, 420, 5]]}, {"blocks": [[150, 149, 5]]}, {"blocks": [[150, 1271, 5]]}):
             self.assertIn("errors", self.check(bad), bad)
+
+    def test_balls_and_block_health_have_no_upper_limit_only_to_be_whole_numbers(self):
+        for big in (1001, 99999, 100000, 10**9, 2**53 - 1, 2**53, 10**20, 10**300):
+            r = self.check({"balls": big, "blocks": [[150, 420, big]]}); self.assertNotIn("errors", r, big)
+            self.assertEqual((float(r["scene"]["balls"]), float(r["scene"]["blocks"][0][3])), (float(big), float(big)))   # kept exactly as the double nearest what was typed
+            self.assertNotIn("errors", self.check({"health": big, "blocks": [[150, 420, 5]]}), big)
+        for bad in ({"balls": 0}, {"balls": 2.5}, {"balls": -3}, {"health": 0}, {"health": 1.5}, {"blocks": [[150, 420, 0]]}, {"blocks": [[150, 420, 4.5]]}):
+            self.assertIn("errors", self.check(dict({"blocks": [[150, 420, 5]]}, **bad)), bad)                                    # still whole numbers, still 1 or more
+        self.assertIn("errors", self.js("console.log(JSON.stringify(S.validate({ blocks: [[150, 420, Infinity]] })))"))          # past the biggest number there is, it is not a whole number any more
 
     def test_whole_numbers_are_required_where_they_matter(self):
         for bad in ({"balls": 2.5, "blocks": [[150, 420, 5]]}, {"score": 1.5, "blocks": [[150, 420, 5]]}, {"blocks": [[150, 420, 2.5]]}, {"blocks": [[150, "420", 5]]}, {"health": 0, "blocks": [[150, 420, 5]]}):
@@ -70,9 +79,30 @@ class Validate(Base):
         many = [[60 + 120 * (i % 5), 200 + 130 * (i // 5), 1] for i in range(41)]
         self.assertIn("at most 40", " ".join(self.check({"blocks": many})["errors"]))
 
-    def test_pickups_are_not_accepted_until_they_are_tested(self):
-        self.assertIn("pickups", " ".join(self.check({"blocks": [[150, 420, 5]], "pickups": [[300, 500]]})["errors"]))
-        self.assertNotIn("errors", self.check({"blocks": [[150, 420, 5]], "pickups": []}))
+    def test_pickups_are_accepted_with_the_same_rules_as_blocks(self):
+        r = self.check({"blocks": [[150, 420, 5]], "pickups": [[300, 500], [500, 700]], "counter": 2}); self.assertNotIn("errors", r)
+        self.assertEqual((r["scene"]["pickups"], r["scene"]["counter"]), ([[300, 500], [500, 700]], 2))
+        self.assertEqual(self.check({"blocks": [[150, 420, 5]], "pickups": [{"x": 300, "y": 500}]})["scene"]["pickups"], [[300, 500]])      # the object form is read too
+        self.assertEqual(self.check({"blocks": [[150, 420, 5]]})["scene"]["pickups"], [])                                                       # none is the default
+        for bad, word in (({"pickups": [[59, 500]]}, "pickup 1: x"), ({"pickups": [[300, 1271]]}, "pickup 1: y"), ({"pickups": [[300]]}, "write it as [x, y]"), ({"pickups": "no"}, "must be a list"),
+                          ({"pickups": [[x * 60 + 60, 800] for x in range(9)]}, "at most 8"), ({"pickups": [[160, 470]]}, "block 1 and pickup 1 overlap"), ({"pickups": [[300, 500], [350, 500]]}, "pickups 1 and 2 overlap")):
+            r = self.check(dict({"blocks": [[150, 420, 5]]}, **bad)); self.assertIn("errors", r, bad); self.assertIn(word, " ".join(r["errors"]), bad)
+
+    def test_the_health_counter_and_the_pickup_timer_have_their_own_ranges(self):
+        for ok in ({"counter": 0}, {"counter": 2}, {"pickupTimer": 0}, {"pickupTimer": 7}): self.assertNotIn("errors", self.check(dict({"blocks": [[150, 420, 5]]}, **ok)), ok)
+        for bad in ({"counter": 3}, {"counter": -1}, {"counter": 1.5}, {"pickupTimer": 8}, {"pickupTimer": -1}): self.assertIn("errors", self.check(dict({"blocks": [[150, 420, 5]]}, **bad)), bad)
+        r = self.check({"blocks": [[150, 420, 5]], "pickups": [[500, 900]], "pickupTimer": 3}); self.assertIn("pickupTimer only applies", " ".join(r["errors"]))   # with a pickup on the board the timer is past 7 already
+
+    def test_complete_keeps_pickups_the_counter_and_the_timer_exactly_as_entered(self):
+        r = self.complete({"score": 38, "blocks": [[150, 420, 5]], "pickups": [[500, 900]], "counter": 1}); self.assertNotIn("errors", r)
+        self.assertEqual((r["scene"]["pickups"], r["scene"]["counter"]), ([[500, 900]], 1)); self.assertIn("pickups", r["kept"]); self.assertIn("counter", r["kept"])
+        r = self.complete({"score": 38, "blocks": [[150, 420, 5]], "pickups": []}); self.assertNotIn("pickups", r["kept"])                                  # an empty list is nothing entered
+        r = self.complete({"score": 38, "pickupTimer": 4}); self.assertEqual(r["scene"]["pickupTimer"], 4)                                                    # and with no blocks entered the typical board is built around it
+
+    def test_pretty_writes_pickups_and_the_extra_numbers_and_reads_back_the_same(self):
+        s = self.check({"name": "x", "blocks": [[150, 420, 5]], "pickups": [[300, 500]], "counter": 2})["scene"]
+        text = self.js(f"console.log(JSON.stringify(S.pretty({json.dumps(s)})))"); self.assertIn('"pickups"', text); self.assertIn('"counter": 2', text)
+        again = self.js(f"console.log(JSON.stringify(S.parse({json.dumps(text)}, null)))")["scene"]; self.assertEqual((again["pickups"], again["counter"]), ([[300, 500]], 2))
 
     def test_not_json_and_not_an_object(self):
         self.assertIn("not valid JSON", self.js("console.log(JSON.stringify(S.parse('{ balls: 3')))")["errors"][0])
@@ -96,15 +126,23 @@ class FillInTheRest(Base):
                 self.assertEqual(sorted(r["kept"]), sorted(combo))
                 self.assertEqual(sorted(x["field"] for x in r["filled"]), sorted({"turn", "score", "balls", "health", "blocks"} - set(combo)))      # exactly the empty ones were filled
 
-    def test_a_very_high_score_is_kept_and_what_is_filled_in_stops_at_the_limits(self):
+    def test_a_very_high_score_is_kept_and_what_is_filled_in_follows_it_with_nothing_capped(self):
+        last = None
         for score in (10**7, 10**15, 10**21):
             r = self.complete({"score": score}); self.assertNotIn("errors", r, score); s = r["scene"]
-            self.assertEqual(float(s["score"]), float(score))                                                       # the score you typed is never capped
-            self.assertEqual((s["balls"], s["health"]), (1000, 99999))                                              # what a game that far in would have is more than can be built
-            self.assertEqual(sorted(x["field"] for x in r["filled"] if x.get("limited")), ["balls", "health"])      # and the page says it was capped
-            self.assertTrue(all(1 <= b[3] <= 99999 for b in s["blocks"]))
-        r = self.complete({"score": 10**7, "balls": 5}); self.assertEqual((r["scene"]["balls"], r["scene"]["health"]), (5, 99999))     # your own ball count is kept
-        r = self.complete({"score": 3824}); self.assertFalse(any(x.get("limited") for x in r["filled"])); self.assertLess(r["scene"]["balls"], 1000)   # an ordinary late game is not capped
+            self.assertEqual(float(s["score"]), float(score))                                                       # the score you typed is never changed
+            self.assertGreater(s["balls"], 1000); self.assertGreater(s["health"], 99999)                            # a game that far in has more than the old limits, and now so does the scene
+            self.assertTrue(all(isinstance(x, int) and x >= 1 for x in (s["balls"], s["health"])))                  # still whole numbers
+            self.assertTrue(all(b[3] >= 1 for b in s["blocks"])); self.assertFalse(any(x.get("limited") for x in r["filled"]))
+            self.assertTrue(last is None or (s["balls"], s["health"]) > last); last = (s["balls"], s["health"])      # and they keep growing with the score
+        r = self.complete({"score": 10**7, "balls": 5}); self.assertEqual(r["scene"]["balls"], 5)                       # your own ball count is kept
+        r = self.complete({"score": 3824}); self.assertLess(r["scene"]["balls"], 1000)
+
+    def test_numbers_a_64_bit_float_cannot_hold_are_reported_not_refused(self):
+        r = self.js("console.log(JSON.stringify([S.inexact('9007199254740993'), S.inexact('9007199254740992'), S.inexact('1234'), S.inexact('{\"balls\": 18014398509481985}'), S.inexactNote('12345678901234567890 and 5')]))")
+        self.assertEqual(r[0], [{"typed": "9007199254740993", "held": "9007199254740992"}])          # one past 2^53 is not a number the game has
+        self.assertEqual((r[1], r[2]), ([], []))                                                       # 2^53 itself, and small numbers, are exact
+        self.assertEqual(r[3], [{"typed": "18014398509481985", "held": "18014398509481984"}]); self.assertIn("12345678901234567890 becomes 12345678901234567168", r[4]); self.assertEqual(self.js("console.log(JSON.stringify(S.inexactNote('42')))"), "")
 
     def test_blocks_you_enter_are_kept_exactly_and_the_numbers_still_get_filled(self):
         blocks = [[1, 150, 420, 30], [2, 480, 420, 12], [3, 320, 640, 60]]
