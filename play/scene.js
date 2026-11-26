@@ -165,10 +165,21 @@
   const readBoard = () => { const r = runtime(), t = r.types_by_index, g = {}; for (const v of r.all_global_vars) g[v.name] = v.data;
     return { blocks: t[11].instances.map((b) => [Math.round(b.x), Math.round(b.y), b.instance_vars[0], b.instance_vars[2]]), labels: t[20].instances.filter((l) => l.instance_vars[0] !== 0).length, balls: [g.TotalBall, g.ballStart, g.ballEnd], score: g.score }; };
 
+  /* A tap on the game, the same way driver.js sends one (the watch page has the driver; a page without a bot, such as check.html, uses this). */
+  function fire(kind, x, y) {
+    const w = $("game").contentWindow, d = w.document, el = d.getElementById("c2canvas") || d.body, down = kind === "down";
+    const base = { bubbles: true, cancelable: true, clientX: x, clientY: y, screenX: x, screenY: y, view: w };
+    const names = { move: ["pointermove", "mousemove"], down: ["pointerdown", "mousedown"], up: ["pointerup", "mouseup"] }[kind];
+    el.dispatchEvent(new w.PointerEvent(names[0], Object.assign({ pointerId: 1, pointerType: "mouse", isPrimary: true, button: kind === "move" ? -1 : 0, buttons: down ? 1 : 0 }, base)));
+    el.dispatchEvent(new w.MouseEvent(names[1], Object.assign({ button: 0, buttons: down ? 1 : 0 }, base)));
+  }
+  const tap = async (x, y, holdMs) => { if (window.tapAt) return window.tapAt(x, y, holdMs); fire("move", x, y); await sleep(80); fire("down", x, y); await sleep(holdMs || 80); fire("up", x, y); };
+  api.tap = tap;
+
   /* Press Play ourselves (the bot's Start button would begin choosing shots at once), then wait for the opening board to stop changing. */
   async function enterGame() {
     const t0 = Date.now();
-    while (layout() !== "Game") { if (Date.now() - t0 > 30000) throw new Error("the game screen never appeared"); await window.tapAt(240, 526, 40); await sleep(300); }
+    while (layout() !== "Game") { if (Date.now() - t0 > 30000) throw new Error("the game screen never appeared"); await tap(240, 526, 40); await sleep(300); }
     let last = "", since = Date.now(); while (Date.now() - since < 1500) { const now = JSON.stringify(readBoard().blocks); if (now !== last) { last = now; since = Date.now(); } await sleep(150); }
   }
   function inject(scene) {
@@ -184,18 +195,23 @@
       const pin = lab.behavior_insts[0]; pin.pinObject = b; pin.pinObjectUid = -1; pin.pinAngle = 0; pin.pinDist = 0; pin.myStartAngle = 0; pin.theirStartAngle = 0; pin.lastKnownAngle = 0; pin.mode = 1; id++;
     }
     const turn = scene.turn !== undefined ? scene.turn : 1, level = scene.health !== undefined ? scene.health : 1 + Math.floor(turn / RULES.healthEvery);
-    set("score", scene.score); set("TotalBall", scene.balls); set("ballStart", scene.balls); set("ballEnd", scene.balls); set("num", id);
+    set("score", scene.score); set("TotalBall", scene.balls);
+    // The game draws its on-screen score only when a block is destroyed, and removing the old blocks above made it count and draw the OLD total (the old board's block count) just before this line.
+    // So draw the new score ourselves, or the screen would show the old count until the first block of the new board is destroyed.
+    const shown = t[23].instances[0]; if (shown) { shown.text = String(scene.score); shown.text_changed = true; } set("ballStart", scene.balls); set("ballEnd", scene.balls); set("num", id);
     set("hp", level); set("color", level); set("jump", turn % RULES.healthEvery); set("power", 0);              // the rules: the next row's health is hp; every 3rd turn it goes up; the pickup timer starts again
   }
+  // The scoreboard above the game moves only when the bot plays a turn; show the built score and balls at once (the milestone banners and "best on this device" are left alone).
+  function scoreboard(scene) { for (const [id, v] of [["hud-score", scene.score], ["hud-balls", scene.balls]]) { const el = $(id); if (el) el.textContent = v.toLocaleString(); } }
   /* Build the scene (the bot must not be running) and wait until what is in the game is exactly the scene. Throws, in words, if it never is. */
   async function build(scene) {
-    if ($("start").disabled) throw new Error("the bot is running; press Pause first");
+    if ($("start") && $("start").disabled) throw new Error("the bot is running; press Pause first");
     await enterGame(); inject(scene);
     const want = scene.blocks.map(([, x, y, hp]) => [x, y, hp, hp]), t0 = Date.now();
     // every wanted block is in the game within a pixel of where it was put (the game round-trips positions through its physics, so 934.5 can come back as 934.4999), same health, nothing extra
     const sameBoard = (got) => { const left = got.slice(); for (const w of want) { const k = left.findIndex((g) => Math.abs(g[0] - w[0]) <= 1 && Math.abs(g[1] - w[1]) <= 1 && g[2] === w[2] && g[3] === w[3]); if (k < 0) return false; left.splice(k, 1); } return left.length === 0; };
     for (;;) {
-      const got = readBoard(); if (sameBoard(got.blocks) && got.labels === want.length && got.balls.every((v) => v === scene.balls) && got.score === scene.score) return got;
+      const got = readBoard(); if (sameBoard(got.blocks) && got.labels === want.length && got.balls.every((v) => v === scene.balls) && got.score === scene.score) { scoreboard(scene); return got; }
       if (Date.now() - t0 > 10000) throw new Error("the board did not settle into the scene");
       await sleep(100);
     }
