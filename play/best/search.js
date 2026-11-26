@@ -13,6 +13,9 @@
   "use strict";
   const RISE = 126.0, Y_LOSS = 119.0;
   const rowsLeft = (y) => Math.ceil((y - Y_LOSS) / RISE - 1e-9) - 1;                  // after this shot: 0 or less = lost now, 1 = must die next turn, 2 = the turn after
+  /* A shot to simulate is a number: the aim index, or index + 1000·m for the same aim nudged by NUDGES[m] pixels. */
+  const NUDGES = [[0, 0], [0.37, 0.11], [-0.31, -0.17], [0.13, -0.39], [-0.19, 0.33], [0.41, -0.23], [-0.43, 0.07]];
+  const pixelOf = (pixels, id) => { const p = pixels[id % 1000], n = NUDGES[Math.floor(id / 1000)]; return n && id >= 1000 ? [p[0] + n[0], p[1] + n[1]] : p; };
   function outcome(sim, board, pixel) {                                                // simulate one aim on a board the way the training data was made
     const sorted = board.blocks.slice().sort((a, b) => a[0] - b[0]), blocks = sorted.map((b, i) => [i + 1, b[1], b[2], b[3]]), pickups = board.pickups || [];
     const balls = board.balls || 1, r = sim.simulate(blocks, pixel, pickups, pickups.length > 0, balls, 3000 + 14 * balls);      // one ball leaves every 14 steps, so many balls need a longer limit
@@ -69,15 +72,24 @@
       const found = pickBest(ev.filter(collects), better);
       if (found !== null) yield* testAll(around(found, 3, left));
     }
-    const plain = pickBest(ev, (i, j) => cache.get(i).damage > cache.get(j).damage), best = pickBest(ev, better), chosen = cache.get(best);
+    let best = pickBest(ev, better), robust = null;
+    // Sturdiness (cfg.robust = number of nudged copies): when a block must break on this shot, trust a shot only if it still survives with the aim nudged by under half a pixel.
+    // Small errors grow when balls bounce, so a shot that fails nudged copies is one the real game may well disagree about.
+    if (cfg.robust && board.blocks.some((b) => rowsLeft(b[2]) <= 0) && survives(best)) {
+      const ranked = ev.filter(survives).sort((i, j) => (better(i, j) ? -1 : better(j, i) ? 1 : 0)).slice(0, cfg.robustTop || 6), copies = Math.min(cfg.robust, NUDGES.length - 1);
+      stage = "sturdy"; of = ev.length + ranked.length * copies; let most = -1;
+      for (const i of ranked) { const ids = Array.from({ length: copies }, (_, m) => i + 1000 * (m + 1)); yield* ensure(ids); const passes = ids.filter((id) => !cache.get(id).lost).length;
+        if (passes > most) { most = passes; best = i; robust = { copies, passes }; } if (passes === copies) break; }
+    }
+    const plain = pickBest(ev, (i, j) => cache.get(i).damage > cache.get(j).damage), chosen = cache.get(best);
     return { index: best, pixel: pixels[best], predicted: chosen.damage, losing: chosen.lost, collects: chosen.got, urgent: chosen.urgent || 0, threats: targets.length, pickups: (board.pickups || []).length, sims: ev.length, computed: cache.size,
-      searched_all: ev.length >= pixels.length, calm, rescued, first_pass_sims: baseSims, guard_changed: cache.get(plain).lost && !chosen.lost };
+      searched_all: ev.length >= pixels.length, calm, robust, rescued, first_pass_sims: baseSims, guard_changed: cache.get(plain).lost && !chosen.lost };
   }
-  const reporter = (onProgress) => { let n = 0; return (req, i, o) => { if (onProgress) onProgress(++n, req.of, { i, damage: o.damage, lost: o.lost, got: o.got, stage: req.stage }); }; };
+  const reporter = (onProgress) => { let n = 0; return (req, i, o) => { if (onProgress) onProgress(++n, req.of, { i: i % 1000, damage: o.damage, lost: o.lost, got: o.got, stage: req.stage }); }; };
   /* One processor: simulate each requested shot in turn. */
   function chooseAim(sim, scorer, pixels, board, cfg, onProgress) {
     const steps = plan(scorer, pixels, board, cfg, 1, onProgress), tell = reporter(onProgress); let step = steps.next();
-    while (!step.done) { const req = step.value; step = steps.next(req.aims.map((i) => { const o = outcome(sim, board, pixels[i]); tell(req, i, o); return o; })); }
+    while (!step.done) { const req = step.value; step = steps.next(req.aims.map((i) => { const o = outcome(sim, board, pixelOf(pixels, i)); tell(req, i, o); return o; })); }
     return step.value;
   }
   /* Several processors: compute(aims, onEach) returns a promise of the outcomes in the order asked. */
@@ -86,6 +98,6 @@
     while (!step.done) { const req = step.value; step = steps.next(await compute(req.aims, (i, o) => tell(req, i, o))); }
     return step.value;
   }
-  const api = { outcome, chooseAim, chooseAimParallel, rowsLeft };
+  const api = { outcome, chooseAim, chooseAimParallel, rowsLeft, pixelOf };
   root.NNSearch = api; if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : globalThis);

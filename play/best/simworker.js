@@ -7,6 +7,6 @@ const ready = Promise.all([fetch("engine/engine_constants.json").then((r) => r.j
 let board = null;
 onmessage = async (e) => {
   const m = e.data; if (m.board) { board = m.board; return; }
-  try { const R = await ready; postMessage({ job: m.job, k: m.k, o: NNSearch.outcome(R.sim, board, R.pixels[m.i]) }); }
+  try { const R = await ready; postMessage({ job: m.job, k: m.k, o: NNSearch.outcome(R.sim, board, NNSearch.pixelOf(R.pixels, m.i)) }); }
   catch (err) { postMessage({ job: m.job, k: m.k, error: String(err && err.message || err) }); }
 };
