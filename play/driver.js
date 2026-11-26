@@ -5,6 +5,8 @@
 const $ = (id) => document.getElementById(id), frame = $("game"), PLAY = [240, 526], VIEW = { w: 480, h: 853 };
 let running = false, loopId = 0, pixels = [], rng = null, games = [], cur = null, allTurns = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/* On a touch screen (a phone or a tablet) the bot starts out using one processor and not drawing its search over the game: the page stays smooth and the device cool. Both can be changed with the controls. */
+if (window.matchMedia && matchMedia("(pointer: coarse)").matches) { $("power").value = "1"; if ($("showmind")) $("showmind").checked = false; }
 
 /* ---------- speed ---------- */
 const gameClock = () => { try { return frame.contentWindow.NNClock || null; } catch (e) { return null; } };
@@ -16,7 +18,10 @@ function showSpeed() { const c = gameClock(), want = $("speed").value, now = spe
   $("pace").textContent = `chosen: ${speedName(want)} · now: ${speedName(now)}${limited && limitWhy ? ` (limited: ${limitWhy})` : ""}${c && now !== 1 && c.achieved > 1.05 ? ` · shots last reached ${c.achieved.toFixed(1)}×` : ""}`; }
 const turbo = (on) => { const c = gameClock(); if (c) c.turbo = on; };                  // fast only while a shot flies
 $("speed").addEventListener("change", applySpeed);
-setInterval(() => { applySpeed(); showSpeed(); }, 1000);
+/* The game is painted only while some of it is on screen. Scrolled away (to the controls, say) it plays exactly the same frames and just stops drawing them. */
+let offscreen = false; const applyVisibility = () => { const c = gameClock(); if (c) c.offscreen = offscreen; };
+if (window.IntersectionObserver && $("screen")) new IntersectionObserver((entries) => { offscreen = !entries[entries.length - 1].isIntersecting; applyVisibility(); }, { rootMargin: "120px" }).observe($("screen"));
+setInterval(() => { applySpeed(); applyVisibility(); showSpeed(); }, 1000);
 
 /* ---------- the best bot (runs in a background worker so the game stays smooth) ---------- */
 let spare = 1, bot = null, botReady = false, botWaiting = new Map(), botSeq = 0, baseBudget = null, msPerSim = null;
@@ -104,10 +109,11 @@ function record(rec) { allTurns.push(Object.assign({ game: cur.n }, rec)); save(
 
 /* ---------- keeping the log: it survives a refresh, on this device only ---------- */
 const LOG_KEY = "nn-bot-log";
+let keepHint = Infinity;                                                                     // how many recent boards fitted last time: start there, so a full store costs one attempt a turn, not several big ones
 function save() {
-  for (let keepBoards = allTurns.length; ; keepBoards = Math.floor(keepBoards / 2)) {       // if the browser's space runs out, older turns give up their board first
+  for (let keepBoards = Math.min(allTurns.length, keepHint); ; keepBoards = Math.floor(keepBoards * 0.75)) {       // if the browser's space runs out, older turns give up their board first
     const turns = allTurns.map((t, i) => (i < allTurns.length - keepBoards ? Object.assign({}, t, { board: undefined }) : t));
-    try { localStorage.setItem(LOG_KEY, JSON.stringify({ v: 2, games, turns })); return; } catch (e) { if (!keepBoards) return; }
+    try { localStorage.setItem(LOG_KEY, JSON.stringify({ v: 2, games, turns })); keepHint = keepBoards >= allTurns.length ? Infinity : keepBoards; return; } catch (e) { if (!keepBoards) return; }
   }
 }
 function restore() {

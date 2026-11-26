@@ -1,0 +1,18 @@
+/* Shared by the watch page and the puzzle pages. */
+
+/* The status bar: fixed to the bottom of the screen, so wherever you have scrolled to you can see what the page is doing, and it never moves the page. Hidden until there is something to say. */
+#scene-bar { position:fixed; left:0; right:0; bottom:0; z-index:70; display:flex; gap:.6rem; align-items:flex-start; padding:.7rem .6rem calc(.7rem + env(safe-area-inset-bottom)) 1rem; background:#0d1622; color:#dbe7f5; border-top:2px solid #58d6ff; box-shadow:0 -6px 18px rgba(0,0,0,.35); }
+#scene-bar[hidden] { display:none; }
+#scene-bar #scene-status { flex:1 1 auto; min-width:0; margin:0; display:block; font-size:1rem; line-height:1.35; color:inherit; overflow-wrap:anywhere; max-height:36vh; overflow:auto; }
+#scene-bar button { flex:0 0 auto; min-width:2.75rem; min-height:2.75rem; padding:0; border:1px solid #3c5576; border-radius:10px; background:#16263c; color:#dbe7f5; font-size:1.1rem; cursor:pointer; touch-action:manipulation; }
+/* a spinner while it is working, so "did it take my tap?" and "is it slow?" are different things you can see */
+#scene-bar.busy #scene-status::before { content:""; display:inline-block; width:.9rem; height:.9rem; margin-right:.6rem; vertical-align:-.1rem; border:3px solid #58d6ff; border-right-color:transparent; border-radius:50%; animation:nn-spin .8s linear infinite; }
+@keyframes nn-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #scene-bar.busy #scene-status::before { animation:none; } }
+body.has-bar { padding-bottom:5.5rem; }
+
+/* Text that changes while the bot plays keeps the box it is in: on one line, cut with an ellipsis if it is long, so nothing below it ever moves. */
+.pill, #pace, #state { max-width:100%; box-sizing:border-box; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:bottom; }
+#now { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:1.5em; }
+.hud .records > div { min-height:2.6em; }
+button:disabled { cursor:wait; }

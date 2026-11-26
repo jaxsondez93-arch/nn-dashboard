@@ -1,7 +1,8 @@
 /* Game speed control, loaded inside the game only when the bot page asks for it (?bot=1). The game's physics already advances a fixed step per frame; here every frame also gets
    exactly 1/60 s of game time, whatever the real clock says, and "faster" means running more of those identical frames per screen refresh, drawing only the last one.
    So no frame is skipped or stretched. The bot page turns "turbo" on only while a shot is flying: aiming and menus stay at normal speed, because the game judges a tap by how long it
-   lasts in game time. ?seed=N additionally makes the game's random numbers repeatable, for comparing speeds. */
+   lasts in game time. ?seed=N additionally makes the game's random numbers repeatable, for comparing speeds.
+   While the page says the game is scrolled out of sight (NNClock.offscreen) every frame is still run, so the game plays exactly the same, but nothing is painted: painting is most of its cost. */
 (function () {
   "use strict";
   var query = typeof location === "undefined" ? "" : location.search;
@@ -22,7 +23,7 @@
   var seed = /[?&]seed=(\d+)/.exec(query);
   if (seed) { var a = Number(seed[1]) >>> 0; Math.random = function () { a = (a + 0x6d2b79f5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   var realFrame = window.requestAnimationFrame.bind(window), realNow = performance.now.bind(performance), waiting = [], now = realNow(), lastReal = now, owed = 0, wrapped = null;
-  var clock = window.NNClock = { speed: 1, turbo: false, frames: 0, ballFrames: 0, achieved: null, skip: false };
+  var clock = window.NNClock = { speed: 1, turbo: false, frames: 0, ballFrames: 0, achieved: null, skip: false, offscreen: false };
   window.requestAnimationFrame = function (f) { waiting.push(f); return waiting.length; };
   window.cancelAnimationFrame = function () {};
   performance.now = function () { return now; };
@@ -36,7 +37,7 @@
       now += STEP; var run = waiting; waiting = []; for (var i = 0; i < run.length; i++) run[i](now); ran++; clock.frames++; if (speed !== "max") owed -= STEP;
       r = runtime(); if (r && r.types_by_index && r.types_by_index[9] && r.types_by_index[9].instances.length) clock.ballFrames++;      // lets the bot see a shot even if it starts and ends between two looks
     }
-    clock.skip = false; if (ran && r && wrapped === r) { if (r.glwrap) r.drawGL(); else r.draw(); }
+    clock.skip = false; if (ran && r && wrapped === r && !clock.offscreen) { if (r.glwrap) r.drawGL(); else r.draw(); }
     if (clock.turbo) { meterFrames += ran; meterMs += passed; if (meterMs >= 500) { clock.achieved = meterFrames * STEP / meterMs; meterMs = meterFrames = 0; } }      // speed reached while shots were flying
     realFrame(screen);
   }

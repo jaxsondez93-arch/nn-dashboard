@@ -10,7 +10,7 @@
 (function (root) {
   "use strict";
   // The game accepts a block anywhere in the play field; its own rows keep to the ranges below. Two blocks of one row can sit as close as 100 apart (a row of two: 260 and 360), so that is the least allowed.
-  const LIMITS = { xMin: 60, xMax: 660, yMin: 150, yMax: 1270, gap: 100, maxBlocks: 40, maxBalls: 1000, maxHealth: 99999 };            // no limit on the score: it only has to be a whole number, 0 or more
+  const LIMITS = { xMin: 60, xMax: 660, yMin: 150, yMax: 1270, gap: 100, maxBlocks: 40, maxPickups: 8 };            // no limit on the score, the balls or the health: each only has to be a whole number (score 0 or more, balls and health 1 or more). The game's own numbers are 64-bit floats: see inexact()
   const isInt = (v) => Number.isInteger(v), num = (v) => typeof v === "number" && Number.isFinite(v), empty = (v) => v === undefined || v === null || v === "";
 
   /* ---------- what the game's own rules say (read from its event sheet) ---------- */
@@ -21,6 +21,7 @@
     // where a new block goes: uniform inside these ranges. Rows of three sit at y = 1210, every other row at 1200.
     rows: { 1: { y: 1200, x: [[120, 600]] }, 2: { y: 1200, x: [[120, 260], [360, 600]] }, 3: { y: 1210, x: [[65, 217], [340, 400], [510, 657]] } },
     pickupRow: { y: 1200, blockSides: [[340, 600], [120, 240]] },     // a pickup row holds one block, on the right or the left (the pickup takes the other side)
+    pickupTimerAtRow: 7, pickupTimerOnBoard: 8,                     // a pickup row appears when the timer reads 7 and sets it to 8; the timer then counts up each turn until the pickup is collected (or lost), which sets it to 0
     opening: [[570, 1032], [83, 963], [236, 753], [502, 792], [627, 588], [628, 718]],     // the fixed opening board (every block has health 1)
   };
 
@@ -70,9 +71,9 @@
     const errors = [], L = LIMITS;
     if (!input || typeof input !== "object" || Array.isArray(input)) return { errors: ["The scene must be an object like { \"score\": 38 } or { \"balls\": 12, \"blocks\": [[150, 420, 30]] }."] };
     const balls = empty(input.balls) ? 1 : input.balls, score = empty(input.score) ? 0 : input.score;
-    if (!isInt(balls) || balls < 1 || balls > L.maxBalls) errors.push(`balls must be a whole number from 1 to ${L.maxBalls}.`);
+    if (!isInt(balls) || balls < 1) errors.push("balls must be a whole number, 1 or more.");
     if (!isInt(score) || score < 0) errors.push("score must be a whole number, 0 or more.");
-    if (!empty(input.health) && (!isInt(input.health) || input.health < 1 || input.health > L.maxHealth)) errors.push(`health must be a whole number from 1 to ${L.maxHealth}.`);
+    if (!empty(input.health) && (!isInt(input.health) || input.health < 1)) errors.push("health must be a whole number, 1 or more.");
     if (!empty(input.turn) && (!isInt(input.turn) || input.turn < 1)) errors.push("turn must be a whole number, 1 or more.");
     if (!empty(input.seed) && !isInt(input.seed)) errors.push("seed must be a whole number.");
     if (!Array.isArray(input.blocks) || input.blocks.length < 1) errors.push("blocks must be a list with at least one block, each written [x, y, health].");
@@ -84,17 +85,40 @@
       else { errors.push(`block ${n}: write it as [x, y, health].`); return; }
       if (!num(x) || x < L.xMin || x > L.xMax) errors.push(`block ${n}: x must be a number from ${L.xMin} (left) to ${L.xMax} (right).`);
       if (!num(y) || y < L.yMin || y > L.yMax) errors.push(`block ${n}: y must be a number from ${L.yMin} (near the top, the danger end) to ${L.yMax} (the bottom).`);
-      if (!isInt(hp) || hp < 1 || hp > L.maxHealth) errors.push(`block ${n}: health must be a whole number from 1 to ${L.maxHealth}.`);
+      if (!isInt(hp) || hp < 1) errors.push(`block ${n}: health must be a whole number, 1 or more.`);
       blocks.push([n, x, y, hp]);
     });
     for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
       if (![blocks[i][1], blocks[i][2], blocks[j][1], blocks[j][2]].every(num)) continue;
       const d = Math.hypot(blocks[i][1] - blocks[j][1], blocks[i][2] - blocks[j][2]); if (d < L.gap) errors.push(`blocks ${i + 1} and ${j + 1} overlap (their centres are ${Math.round(d)} apart; keep them at least ${L.gap} apart).`);
     }
-    if (!empty(input.pickups) && !(Array.isArray(input.pickups) && input.pickups.length === 0)) errors.push("pickups are not supported yet; leave the list out or empty.");
+    const pickups = [];
+    if (!empty(input.pickups)) {
+      if (!Array.isArray(input.pickups)) errors.push("pickups must be a list, each written [x, y].");
+      else if (input.pickups.length > L.maxPickups) errors.push(`at most ${L.maxPickups} pickups.`);
+      else input.pickups.forEach((q, i) => {
+        const n = i + 1; let x, y;
+        if (Array.isArray(q) && q.length === 2) [x, y] = q; else if (q && typeof q === "object" && !Array.isArray(q)) ({ x, y } = q); else { errors.push(`pickup ${n}: write it as [x, y].`); return; }
+        if (!num(x) || x < L.xMin || x > L.xMax) errors.push(`pickup ${n}: x must be a number from ${L.xMin} (left) to ${L.xMax} (right).`);
+        if (!num(y) || y < L.yMin || y > L.yMax) errors.push(`pickup ${n}: y must be a number from ${L.yMin} (near the top) to ${L.yMax} (the bottom).`);
+        pickups.push([x, y]);
+      });
+    }
+    // a pickup is as much in the way as a block: nothing within "gap" of anything else
+    const things = blocks.map((b, i) => ({ kind: "block", n: i + 1, x: b[1], y: b[2] })).concat(pickups.map((q, i) => ({ kind: "pickup", n: i + 1, x: q[0], y: q[1] })));
+    for (let i = 0; i < things.length; i++) for (let j = i + 1; j < things.length; j++) {
+      const a = things[i], b = things[j]; if (a.kind === "block" && b.kind === "block") continue;                    // block pairs were checked above
+      if (![a.x, a.y, b.x, b.y].every(num)) continue; const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < L.gap) errors.push(`${a.kind === b.kind ? `${a.kind}s ${a.n} and ${b.n}` : `${a.kind} ${a.n} and ${b.kind} ${b.n}`} overlap (their centres are ${Math.round(d)} apart; keep them at least ${L.gap} apart).`);
+    }
+    if (!empty(input.counter) && (!isInt(input.counter) || input.counter < 0 || input.counter > 2)) errors.push("counter must be 0, 1 or 2 (how many turns have passed since the health of new blocks last went up).");
+    if (!empty(input.pickupTimer)) {
+      if (!isInt(input.pickupTimer) || input.pickupTimer < 0 || input.pickupTimer > RULES.pickupTimerAtRow) errors.push(`pickupTimer must be a whole number from 0 to ${RULES.pickupTimerAtRow} (a pickup appears when it reaches ${RULES.pickupTimerAtRow}).`);
+      else if (pickups.length) errors.push("pickupTimer only applies when no pickup is on the board (with one there, the game's timer is already past 7); leave it out.");
+    }
     if (errors.length) return { errors };
-    const scene = { score, balls, blocks, pickups: [] };
-    for (const key of ["turn", "health", "seed"]) if (!empty(input[key])) scene[key] = input[key];
+    const scene = { score, balls, blocks, pickups };
+    for (const key of ["turn", "health", "seed", "counter", "pickupTimer"]) if (!empty(input[key])) scene[key] = input[key];
     if (!empty(input.name)) scene.name = String(input.name).slice(0, 80);
     return { scene };
   }
@@ -104,7 +128,7 @@
      "data" is web/play/progression.json (measured from real games by tools/fit_progression.py); without it only a scene that already has its blocks can be checked. */
   function complete(input, data) {
     if (!input || typeof input !== "object" || Array.isArray(input)) return validate(input);
-    const entered = {}; for (const key of ["turn", "score", "balls", "health", "blocks", "seed", "name", "pickups"]) if (!empty(input[key])) entered[key] = input[key];
+    const entered = {}; for (const key of ["turn", "score", "balls", "health", "blocks", "seed", "name", "pickups", "counter", "pickupTimer"]) if (!empty(input[key])) entered[key] = input[key];
     const problems = [];                                                                                      // a wrong kind of value is reported as it is, never "fixed"
     for (const key of ["turn", "score", "balls", "health"]) if (key in entered && !(isInt(entered[key]) && entered[key] >= (key === "score" ? 0 : 1))) problems.push(`${key} must be a whole number, ${key === "score" ? "0" : "1"} or more.`);
     if (problems.length) return { errors: problems };
@@ -119,28 +143,33 @@
     const take = (key, make, why) => { if (key in entered) scene[key] = entered[key]; else { scene[key] = make(); filled.push({ field: key, value: scene[key], why }); } };
     take("turn", () => valueAt.turn(T), "the average turn of what you entered");
     take("score", () => valueAt.score(T, f), "a real game's score at that turn");
-    const ballsAtT = valueAt.balls(T, f), healthAtT = valueAt.health(T);                                        // a very high score points to a very late game: more balls and health than can be built
-    take("balls", () => Math.min(LIMITS.maxBalls, ballsAtT), ballsAtT > LIMITS.maxBalls ? `a real game that far in would have ${ballsAtT} balls; the most built is ${LIMITS.maxBalls}` : "a real game's ball count at that turn");
-    take("health", () => Math.min(LIMITS.maxHealth, healthAtT), healthAtT > LIMITS.maxHealth ? `a real game that far in would have health ${healthAtT}; the most built is ${LIMITS.maxHealth}` : "the health of new blocks at that turn: 1 + turn / 3");
-    for (const x of filled) if ((x.field === "balls" && ballsAtT > LIMITS.maxBalls) || (x.field === "health" && healthAtT > LIMITS.maxHealth)) x.limited = true;
+    take("balls", () => valueAt.balls(T, f), "a real game's ball count at that turn");
+    take("health", () => valueAt.health(T), "the health of new blocks at that turn: 1 + turn / 3");
     if (entered.blocks) scene.blocks = entered.blocks;
     else {
       const seed = "seed" in entered ? entered.seed : hashSeed({ turn: entered.turn, score: entered.score, balls: entered.balls, health: entered.health });
       scene.blocks = typicalBoard(scene.turn, scene.health, data, mulberry32(seed)).sort((a, b) => b[2] - a[2] || a[1] - b[1]).map((b, i) => [i + 1, b[1], b[2], b[3]]); scene.seed = seed;
       filled.push({ field: "blocks", value: `${scene.blocks.length} blocks`, why: `a typical board at turn ${scene.turn} (layout ${seed})` });
     }
-    if ("name" in entered) scene.name = entered.name; if ("pickups" in entered) scene.pickups = entered.pickups;
+    if ("name" in entered) scene.name = entered.name; for (const key of ["pickups", "counter", "pickupTimer"]) if (key in entered) scene[key] = entered[key];
     const checked = validate(scene); if (checked.errors) return checked;
-    return { scene: checked.scene, filled, kept: Object.keys(entered).filter((k) => k !== "seed" && k !== "name"), turn: T, estimates };
+    return { scene: checked.scene, filled, kept: Object.keys(entered).filter((k) => k !== "seed" && k !== "name" && !(k === "pickups" && Array.isArray(entered[k]) && entered[k].length === 0)), turn: T, estimates };
   }
+  /* The game's numbers are 64-bit floats (JavaScript's), which hold every whole number exactly only up to 9,007,199,254,740,991 (2^53 - 1); above that some whole numbers do not exist (from 2^53 only even ones, from 2^54 only multiples of 4, and so on).
+     Whole numbers written in "text" that cannot be held exactly: the digits as written, and the number that is held instead. Nothing is refused: this is what lets the page say what it really built. */
+  function inexact(text) {
+    const out = []; for (const m of String(text).match(/\d{16,}/g) || []) { let held; try { held = BigInt(Number(m)); } catch (e) { continue; } if (held !== BigInt(m)) out.push({ typed: m, held: held.toString() }); }
+    return out;
+  }
+  const inexactNote = (text) => { const n = inexact(text); return n.length ? ` Note: the game's numbers are 64-bit floats and cannot hold every whole number above 9,007,199,254,740,991, so ${n.map((x) => `${x.typed} becomes ${x.held}`).join(", ")}.` : ""; };
   function parse(text, data) {
     let value; try { value = JSON.parse(text); } catch (e) { return { errors: [`That is not valid JSON (${e.message}).`] }; }
     return complete(value, data);
   }
   /* The scene as text: one block to a line. */
   function pretty(scene) {
-    const head = ["name", "score", "balls", "health", "turn", "seed"].filter((k) => scene[k] !== undefined).map((k) => ` ${JSON.stringify(k)}: ${JSON.stringify(scene[k])}`);
-    const lines = head.concat([` "blocks": [\n${scene.blocks.map((b) => `  [${b.join(", ")}]`).join(",\n")}\n ]`]); if (scene.pickups && scene.pickups.length) lines.push(` "pickups": ${JSON.stringify(scene.pickups)}`);
+    const head = ["name", "score", "balls", "health", "turn", "counter", "pickupTimer", "seed"].filter((k) => scene[k] !== undefined).map((k) => ` ${JSON.stringify(k)}: ${JSON.stringify(scene[k])}`);
+    const lines = head.concat([` "blocks": [\n${scene.blocks.map((b) => `  [${b.join(", ")}]`).join(",\n")}\n ]`]); if (scene.pickups && scene.pickups.length) lines.push(` "pickups": [\n${scene.pickups.map((q) => `  [${q.join(", ")}]`).join(",\n")}\n ]`);
     return `{\n${lines.join(",\n")}\n}`;
   }
   const EXAMPLE_TEXT = `{
@@ -154,7 +183,7 @@
   [520, 860, 45]
  ]
 }`, EXAMPLE = JSON.parse(EXAMPLE_TEXT);
-  const api = { validate, complete, parse, pretty, typicalBoard, LIMITS, RULES, EXAMPLE, EXAMPLE_TEXT };
+  const api = { validate, complete, parse, pretty, typicalBoard, inexact, inexactNote, LIMITS, RULES, EXAMPLE, EXAMPLE_TEXT };
   root.NNScene = api; if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof document === "undefined") return;
 
@@ -163,7 +192,7 @@
   const runtime = () => { try { return $("game").contentWindow.cr_getC2Runtime(); } catch (e) { return null; } };
   const layout = () => { const r = runtime(); return r && r.running_layout ? r.running_layout.name : null; };
   const readBoard = () => { const r = runtime(), t = r.types_by_index, g = {}; for (const v of r.all_global_vars) g[v.name] = v.data;
-    return { blocks: t[11].instances.map((b) => [Math.round(b.x), Math.round(b.y), b.instance_vars[0], b.instance_vars[2]]), labels: t[20].instances.filter((l) => l.instance_vars[0] !== 0).length, balls: [g.TotalBall, g.ballStart, g.ballEnd], score: g.score }; };
+    return { blocks: t[11].instances.map((b) => [Math.round(b.x), Math.round(b.y), b.instance_vars[0], b.instance_vars[2]]), labels: t[20].instances.filter((l) => l.instance_vars[0] !== 0).length, pickups: t[22].instances.map((p) => [Math.round(p.x), Math.round(p.y)]), balls: [g.TotalBall, g.ballStart, g.ballEnd], score: g.score }; };
 
   /* A tap on the game, the same way driver.js sends one (the watch page has the driver; a page without a bot, such as check.html, uses this). */
   function fire(kind, x, y) {
@@ -177,9 +206,10 @@
   api.tap = tap;
 
   /* Press Play ourselves (the bot's Start button would begin choosing shots at once), then wait for the opening board to stop changing. */
-  async function enterGame() {
-    const t0 = Date.now();
+  async function enterGame(step) {
+    const t0 = Date.now(); if (layout() !== "Game" && step) step("Starting the game (the first time takes a few seconds)");
     while (layout() !== "Game") { if (Date.now() - t0 > 30000) throw new Error("the game screen never appeared"); await tap(240, 526, 40); await sleep(300); }
+    if (step) step("Letting the board settle");
     let last = "", since = Date.now(); while (Date.now() - since < 1500) { const now = JSON.stringify(readBoard().blocks); if (now !== last) { last = now; since = Date.now(); } await sleep(150); }
   }
   function inject(scene) {
@@ -199,30 +229,91 @@
     // The game draws its on-screen score only when a block is destroyed, and removing the old blocks above made it count and draw the OLD total (the old board's block count) just before this line.
     // So draw the new score ourselves, or the screen would show the old count until the first block of the new board is destroyed.
     const shown = t[23].instances[0]; if (shown) { shown.text = String(scene.score); shown.text_changed = true; } set("ballStart", scene.balls); set("ballEnd", scene.balls); set("num", id);
-    set("hp", level); set("color", level); set("jump", turn % RULES.healthEvery); set("power", 0);              // the rules: the next row's health is hp; every 3rd turn it goes up; the pickup timer starts again
+    // pickups: plain objects (no variables). While one is on the board the game's pickup timer reads 8 or more (a pickup row sets it to 8 and it counts up a turn at a time), which keeps it from making a second one.
+    const pickups = scene.pickups || []; for (const [x, y] of pickups) r.createInstance(t[22], layer, x, y);
+    const age = pickups.length ? Math.max(0, Math.round((1200 - Math.max(...pickups.map((q) => q[1]))) / RULES.rise)) : 0;
+    set("hp", level); set("color", level); set("jump", scene.counter !== undefined ? scene.counter : turn % RULES.healthEvery);       // the rules: the next row's health is hp; every 3rd turn it goes up
+    set("power", pickups.length ? RULES.pickupTimerOnBoard + age : (scene.pickupTimer !== undefined ? scene.pickupTimer : 0));
   }
   // The scoreboard above the game moves only when the bot plays a turn; show the built score and balls at once (the milestone banners and "best on this device" are left alone).
   function scoreboard(scene) { for (const [id, v] of [["hud-score", scene.score], ["hud-balls", scene.balls]]) { const el = $(id); if (el) el.textContent = v.toLocaleString(); } }
   /* Build the scene (the bot must not be running) and wait until what is in the game is exactly the scene. Throws, in words, if it never is. */
-  async function build(scene) {
+  async function build(scene, step) {
     if ($("start") && $("start").disabled) throw new Error("the bot is running; press Pause first");
-    await enterGame(); inject(scene);
-    const want = scene.blocks.map(([, x, y, hp]) => [x, y, hp, hp]), t0 = Date.now();
+    await enterGame(step); if (step) step("Placing the blocks"); inject(scene); if (step) step("Checking the board");
+    const want = scene.blocks.map(([, x, y, hp]) => [x, y, hp, hp]), wantPickups = scene.pickups || [], t0 = Date.now();
     // every wanted block is in the game within a pixel of where it was put (the game round-trips positions through its physics, so 934.5 can come back as 934.4999), same health, nothing extra
     const sameBoard = (got) => { const left = got.slice(); for (const w of want) { const k = left.findIndex((g) => Math.abs(g[0] - w[0]) <= 1 && Math.abs(g[1] - w[1]) <= 1 && g[2] === w[2] && g[3] === w[3]); if (k < 0) return false; left.splice(k, 1); } return left.length === 0; };
+    const samePickups = (got) => { const left = got.slice(); for (const w of wantPickups) { const k = left.findIndex((g) => Math.abs(g[0] - w[0]) <= 3 && Math.abs(g[1] - w[1]) <= 3); if (k < 0) return false; left.splice(k, 1); } return left.length === 0; };
     for (;;) {
-      const got = readBoard(); if (sameBoard(got.blocks) && got.labels === want.length && got.balls.every((v) => v === scene.balls) && got.score === scene.score) { scoreboard(scene); return got; }
+      const got = readBoard(); if (sameBoard(got.blocks) && samePickups(got.pickups) && got.labels === want.length && got.balls.every((v) => v === scene.balls) && got.score === scene.score) { scoreboard(scene); return got; }
       if (Date.now() - t0 > 10000) throw new Error("the board did not settle into the scene");
       await sleep(100);
     }
   }
   api.build = build;
 
+  /* ---------- reading and firing (the editor's test shot, and later the device check) ---------- */
+  const globals = () => { const g = {}; for (const v of runtime().all_global_vars) g[v.name] = v.data; return g; };
+  const gameClock = () => { try { return $("game").contentWindow.NNClock || null; } catch (e) { return null; } };
+  /* At rest: the game screen, no ball in flight, nothing waiting, no turn half done. The same test driver.js makes before it chooses a shot. */
+  function isSettled() {
+    const r = runtime(); if (!r || layout() !== "Game") return false; const g = globals();
+    return r.types_by_index[9].instances.length === 0 && !(r.system && Array.isArray(r.system.waits) && r.system.waits.length) && g.Tap === 0 && g.FirstHit === 0 && g.Random1 === 0 && g.power2 === 0;
+  }
+  /* The game as a scene: what the editor loads when you press "read the board from the game". Health of new blocks, the health counter and the pickup timer are read as they are. */
+  function capture() {
+    if (!isSettled()) throw new Error("the game is not at rest (a shot is still going, or it is not on the game screen)");
+    const t = runtime().types_by_index, g = globals(), one = (v) => Math.round(v * 10) / 10, pickups = t[22].instances.map((p) => [one(p.x), one(p.y)]);
+    const scene = { score: g.score, balls: g.TotalBall, health: g.hp, counter: g.jump % RULES.healthEvery, blocks: t[11].instances.map((b) => [one(b.x), one(b.y), b.instance_vars[0]]), pickups };
+    if (!pickups.length && g.power <= RULES.pickupTimerAtRow) scene.pickupTimer = g.power;
+    return scene;
+  }
+  /* Tap the game at "pixel" (in the game's 480 x 853 view) and wait for the whole turn to finish. Resolves with what the shot did. Never throws for a game that ended: the outcome says so. */
+  async function fire(pixel, opts) {
+    opts = opts || {}; if (!isSettled()) throw new Error("the game is not at rest yet");
+    const c = gameClock(), grab = () => { const t = runtime().types_by_index, g = globals(); return { blocks: t[11].instances.map((b) => ({ uid: b.uid, x: b.x, y: b.y, hp: b.instance_vars[0] })), pickups: t[22].instances.length, score: g.score, balls: g.TotalBall }; };
+    const before = grab(), framesBefore = c ? c.ballFrames : 0, t0 = performance.now(); let seen = false, outcome = null;
+    await tap(pixel[0], pixel[1], 80);
+    if (c) { if (typeof applySpeed === "function") applySpeed(); else if (opts.speed !== undefined) c.speed = opts.speed; c.turbo = true; }       // fast only while the balls fly, like the bot
+    const t1 = performance.now();
+    for (;;) {
+      await sleep(150); if (layout() !== "Game") { outcome = "left"; break; }
+      if (runtime().types_by_index[9].instances.length > 0 || (c && c.ballFrames > framesBefore)) seen = true;
+      if (seen && isSettled()) { outcome = "ok"; break; }
+      if (!seen && performance.now() - t1 > 8000) { outcome = "no_launch"; break; }
+      if (performance.now() - t1 > 120000 + 500 * before.balls) { outcome = "stuck"; break; }
+    }
+    if (c) c.turbo = false;
+    const result = { outcome, scoreBefore: before.score, ballsBefore: before.balls, secs: +((performance.now() - t0) / 1000).toFixed(1) };
+    if (outcome !== "ok") return result;
+    const after = grab(), now = new Map(after.blocks.map((b) => [b.uid, b.hp])); let damage = 0, destroyed = 0;
+    for (const b of before.blocks) { const left = now.has(b.uid) ? now.get(b.uid) : 0; damage += b.hp - left; if (left === 0) destroyed++; }
+    return Object.assign(result, { damage, destroyed, scoreAfter: after.score, ballsAfter: after.balls, ballsGained: after.balls - before.balls });
+  }
+  Object.assign(api, { isSettled, capture, fire });
+
+  /* ---------- the status bar (shared by the puzzle panel and the editor page) ---------- */
+  const status = $("scene-status"), bar = $("scene-bar") || status;
+  const say = (s, bad, good) => { if (!status) return; status.textContent = s; status.style.color = bad ? "#ff8a8a" : good ? "#9fffc4" : ""; bar.hidden = false; };           // fixed to the bottom of the screen: it shows up when there is something to say
+  if ($("scene-bar-close")) $("scene-bar-close").onclick = () => { bar.hidden = true; };
+  /* Run work(step) while the bar says what it is doing and for how long, the clicked button says "Working..." and the other buttons are off, so "did it take my tap?" and "is it slow?" are different things you can see.
+     Resolves { ok, value, secs }; a failure is shown in the bar (with "failText") and resolves { ok: false }. */
+  async function withProgress(clicked, buttons, work, failText) {
+    buttons.forEach((b) => { b.disabled = true; });
+    const label = clicked.textContent, t0 = Date.now(); let doing = "Working"; clicked.textContent = "Working..."; bar.classList.add("busy"); bar.setAttribute("aria-busy", "true");
+    const tick = () => say(`${doing}... ${Math.round((Date.now() - t0) / 1000)} s`), timer = setInterval(tick, 500), step = (m) => { doing = m; tick(); }; tick();
+    try { const value = await work(step); return { ok: true, value, secs: (Date.now() - t0) / 1000 }; }
+    catch (e) { say(`${failText || "Could not do that"}: ${e.message}`, true); return { ok: false }; }
+    finally { clearInterval(timer); clicked.textContent = label; bar.classList.remove("busy"); bar.removeAttribute("aria-busy"); buttons.forEach((b) => { b.disabled = false; }); }
+  }
+  api.ready = fetch("progression.json").then((r) => r.json()).then((d) => { api.data = d; return d; }).catch(() => null);          // the measured numbers a real game has (null if they could not be loaded)
+  Object.assign(api, { say, withProgress });
+
   /* ---------- the panel: the number boxes are the inputs, the scene box shows (and lets you edit) the full result ---------- */
   const text = $("scene-text"); if (!text) return;
-  const status = $("scene-status"), FIELDS = ["score", "balls", "health", "turn"], box = (k) => $("scene-" + k), buttons = ["scene-fill", "scene-another", "scene-example", "scene-build", "scene-build-start"].map($);
-  const say = (s, bad) => { status.textContent = s; status.style.color = bad ? "#ff8a8a" : ""; };
-  let data = null, layoutSeed = null; const loaded = fetch("progression.json").then((r) => r.json()).then((d) => { data = d; api.data = d; }).catch(() => {});
+  const FIELDS = ["score", "balls", "health", "turn"], box = (k) => $("scene-" + k), buttons = ["scene-fill", "scene-another", "scene-example", "scene-build", "scene-build-start"].map($);
+  let data = null, layoutSeed = null; const loaded = api.ready.then((d) => { data = d; });
   // an empty box is left out, so it is filled in; anything typed that is not a whole number is reported, not changed
   function fromBoxes() {
     const partial = {}, errors = [];
@@ -241,31 +332,31 @@
     const kept = r.kept.length ? `Kept exactly as you entered: ${r.kept.join(", ")}.` : "";
     const round = (x) => Math.round(x);
     const how = r.estimates.length > 1 ? ` Your numbers point to turns ${r.estimates.map((e) => `${round(e.turn)} (${e.field})`).join(", ")}, so the empty ones use their average, turn ${round(r.turn)}.` : ` That points to about turn ${round(r.turn)} of a real game.`;
-    return kept + how + (r.filled.length ? ` Filled in: ${r.filled.map((x) => (x.field === "blocks" ? x.value : `${x.field} ${x.value}${x.limited ? " (the most the page builds)" : ""}`)).join(", ")}.` : "");
+    return kept + how + (r.filled.length ? ` Filled in: ${r.filled.map((x) => (x.field === "blocks" ? x.value : `${x.field} ${x.value}`)).join(", ")}.` : "");
   }
+  const rawText = () => (Object.keys(fromBoxes().partial).length ? FIELDS.map((k) => box(k).value).join(" ") : text.value);          // what was typed, before it became a number
   async function fill(another) {
     await loaded;
     try {
-      const { input: base, fromBoxes: typed } = source(), input = Object.assign({}, base); if (another) { delete input.blocks; input.seed = (layoutSeed === null ? 0 : layoutSeed) + 1; }
+      const { input: base, fromBoxes: typed } = source(), input = Object.assign({}, base), noted = inexactNote(rawText()); if (another) { delete input.blocks; input.seed = (layoutSeed === null ? 0 : layoutSeed) + 1; }
       const r = complete(input, data); if (r.errors) throw new Error(r.errors.join(" "));
-      text.value = pretty(r.scene); if (typed) clearBoxes(); layoutSeed = r.scene.seed === undefined ? null : r.scene.seed; say(explain(r));
+      text.value = pretty(r.scene); if (typed) clearBoxes(); layoutSeed = r.scene.seed === undefined ? null : r.scene.seed; say(explain(r) + noted);
     } catch (e) { say(e.message, true); }
   }
   $("scene-fill").onclick = () => { layoutSeed = null; fill(false); }; $("scene-another").onclick = () => fill(true);
   $("scene-example").onclick = () => { text.value = EXAMPLE_TEXT; say("Example loaded. It has no score written in it, so the score is filled in to match the balls; change the balls and the score follows."); };
-  async function go(startBot) {
-    buttons.forEach((b) => { b.disabled = true; });
-    try {
-      await loaded; let scene;
+  async function go(startBot, clicked) {
+    let noted = "";
+    const r = await withProgress(clicked, buttons, async (step) => {
+      await loaded; let scene; noted = inexactNote(rawText());
       const typed = Object.keys(fromBoxes().partial).length > 0;                       // numbers typed in the boxes win over whatever is in the scene box
-      if (typed || text.value.trim() === "") { const r = complete(source().input, data); if (r.errors) throw new Error(r.errors.join(" ")); scene = r.scene; text.value = pretty(scene); clearBoxes(); }
-      else { const r = parse(text.value, data); if (r.errors) throw new Error(r.errors.join(" ")); scene = r.scene; if (r.filled && r.filled.length) text.value = pretty(scene); }      // a partial scene: show the whole one that is being built
-      say("Building: opening the game screen, then placing the blocks...");
-      const got = await build(scene);
-      say(`Built and checked: ${got.blocks.length} blocks, ${scene.balls} ball${scene.balls === 1 ? "" : "s"}, score ${scene.score}. ${startBot ? "Starting the bot..." : "The bot is paused. Press Start to let it play from here."}`);
-      if (startBot) $("start").click();
-    } catch (e) { say(`Could not build it: ${e.message}`, true); }
-    finally { buttons.forEach((b) => { b.disabled = false; }); }
+      if (typed || text.value.trim() === "") { const c = complete(source().input, data); if (c.errors) throw new Error(c.errors.join(" ")); scene = c.scene; text.value = pretty(scene); clearBoxes(); }
+      else { const c = parse(text.value, data); if (c.errors) throw new Error(c.errors.join(" ")); scene = c.scene; if (c.filled && c.filled.length) text.value = pretty(scene); }      // a partial scene: show the whole one that is being built
+      return { scene, got: await build(scene, step) };
+    }, "Could not build it");
+    if (!r.ok) return; const { scene, got } = r.value;
+    say(`Done in ${r.secs.toFixed(1)} s: ${got.blocks.length} blocks${got.pickups.length ? `, ${got.pickups.length} pickup${got.pickups.length === 1 ? "" : "s"}` : ""}, ${scene.balls} ball${scene.balls === 1 ? "" : "s"}, score ${scene.score.toLocaleString()}. ${startBot ? "The bot is starting." : "The bot is paused: press Start to play it."}${noted}`, false, true);
+    if (startBot) $("start").click();
   }
-  $("scene-build").onclick = () => go(false); $("scene-build-start").onclick = () => go(true);
+  $("scene-build").onclick = (e) => go(false, e.currentTarget); $("scene-build-start").onclick = (e) => go(true, e.currentTarget);
 })(typeof self !== "undefined" ? self : globalThis);

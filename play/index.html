@@ -39,9 +39,10 @@ table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding
 .hud .records { font-size:.85rem; } .toast { position:fixed; left:50%; top:1rem; z-index:60; transform:translate(-50%,-180%); background:#0d1622; color:#9fffc4; border:1px solid #4cc38a; border-radius:999px; padding:.6rem 1.2rem; font:700 1rem ui-monospace,monospace; box-shadow:0 0 24px rgba(76,195,138,.5); transition:transform .45s cubic-bezier(.2,1.4,.4,1); pointer-events:none; white-space:nowrap; visibility:hidden; } .toast.show { transform:translate(-50%,0); visibility:visible; }
 @media (min-width:900px) { .hud { grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,2fr) minmax(0,2.4fr); } .hud .danger, .hud .records { grid-column:auto; } }
 @media (prefers-reduced-motion: reduce) { .hud strong.bump, .danger[data-level="1"] .bars i { animation:none; } .toast { transition:none; } }</style>
+<link rel="stylesheet" href="ui.css">
 </head>
-<body>
-<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="./">Watch the bot play</a><a href="../yourself/">Play it yourself</a><a href="../contribute/">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
+<body class="has-bar">
+<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="./">Watch the bot play</a><a href="puzzle.html">Build a puzzle</a><a href="../yourself/">Play it yourself</a><a href="../contribute/">Lend your processor</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
 <main>
 <h1>Watch the bot play the real game</h1>
 <p>The game runs in this page, on your device. The bot reads the blocks, thinks, taps an aim and logs what happens, including how well its prediction matched what really happened. Nothing is sent anywhere.</p>
@@ -74,7 +75,7 @@ table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding
       <p class="note">Or write the whole scene yourself. Each block is <code>[x, y, health]</code>: <b>x</b> runs 60 (left) to 660 (right), <b>y</b> runs 150 (near the top, the danger end: a block this high must break at once) to 1270 (the bottom, where new rows appear), blocks at least 100 apart. The bot must be paused first.</p>
       <textarea id="scene-text" rows="11" spellcheck="false" aria-label="The scene, as JSON" placeholder='{ "score": 38 }   (one number is enough; the rest is filled in)' style="width:100%;box-sizing:border-box;font:.85rem ui-monospace,monospace;background:var(--code);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem"></textarea>
       <div class="controls"><button class="small" id="scene-example">Load the example</button> <button class="small" id="scene-build">Build it</button> <button class="small" id="scene-build-start">Build it and start the bot</button></div>
-      <div class="readout" id="scene-status" role="status" aria-live="polite">Nothing built yet.</div></section>
+      <p class="note"><b>On a phone?</b> The <a href="puzzle.html">light puzzle page</a> has just these controls and the game, so it is smoother.</p></section>
     <section class="lab"><h2>Results so far</h2><div class="readout" id="summary">No games yet.</div><div id="bars"></div>
       <div class="wide"><table class="log" id="turns"><thead><tr><th>turn</th><th>how</th><th>balls</th><th>blocks</th><th>predicted</th><th>actual</th><th>think s</th></tr></thead><tbody></tbody></table></div></section>
   </div>
@@ -111,5 +112,6 @@ table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding
 <p class="note">The game "FALLING BALLZ" is shown here at the site owner's request and is not part of the nn-dashboard source or its licence. See <a href="../docs/PLAY.html">the notice</a>.</p>
 </main>
 <footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/PLAY.html">how this works</a> · <a href="https://github.com/jaxsondez93-arch/nn-dashboard">source</a></footer>
+<div id="scene-bar" hidden><div id="scene-status" role="status" aria-live="polite"></div><button id="scene-bar-close" type="button" aria-label="Dismiss this message">&#10005;</button></div>
 <script src="bot.js"></script><script src="clock.js"></script><script src="stats.js"></script><script src="analysis.js"></script><script src="thought.js"></script><script src="explore.js"></script><script src="system.js"></script><script src="hud.js"></script><script src="driver.js"></script><script src="scene.js"></script><script src="../register-sw.js"></script>
 </body></html>
