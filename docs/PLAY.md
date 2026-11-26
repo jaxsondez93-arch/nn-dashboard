@@ -33,10 +33,30 @@ In earlier live games this method survived 72 turns (still alive at a time limit
 
 ## What the page shows while it plays
 - **Speed.** You choose a speed (up to "fastest this device can"); the page shows separately the speed in use. Shots run faster by computing more of the same fixed game frames per screen refresh; aiming and menus stay at normal speed. In a 14-turn check the predicted damage was exact on every shot at both normal and fastest speed; whole games cannot be compared turn by turn, because new blocks appear in random places.
-- **Scoreboard.** Live turn, score and balls, a danger meter, rings on the blocks about to reach the line, records, and a button that loads the record game into the charts.
+- **Scoreboard.** Live turn, score and balls, a danger meter with one tab for every row (1 to 10 shots from the line; it never just says "safe", because some block is always some number of shots away), rings on every block (red must break this shot, orange next, yellow the one after, then fainter cyan rings for each row further out), records, and a button that loads the record game into the charts.
 - **Thinking display.** The scorer's view of all aims, every shot the physics tries (red = loses, gold = extra ball), and the choice. It only draws.
 - **Prediction accuracy, exploring tools and machine readings**, with the formulas. A page can only measure some things about your device; temperature and processor load appear only with a helper running on the same computer.
 - **The log** is kept on your device across refreshes, can be downloaded, opened again for analysis, or erased.
+
+## Build your own puzzle
+The **Build a puzzle** panel makes the real game build a board you describe, then lets the bot play on from it. Type or paste a scene:
+
+```json
+{ "name": "Example", "score": 0, "balls": 12, "blocks": [[150, 420, 30], [480, 420, 30], [320, 640, 60]] }
+```
+
+- **Blocks** are `[x, y, health]`. `x` runs from 60 (left) to 660 (right). `y` runs from 150 (near the top, the danger end: a block this high must be broken at once) to 1270 (the bottom, where new rows appear). Blocks must be at least 115 apart. Up to 40 blocks, health 1 to 99999.
+- **balls** is how many balls are fired each turn (1 to 1000); **score** is where the counter starts. An optional `turn` sets the health that later rows spawn with (the game's rule is about one more every three turns).
+- Every problem with a scene is listed at once, in words. Pickups are not supported yet.
+- **Build it** places the board and leaves the bot paused so you can look; **Build it and start the bot** also starts it. The bot must be paused first, and the log's turn numbers start again from 1.
+
+How a built board is made to play like a real one, because it took three things (each found by experiment and confirmed by the shot's predicted damage equalling its real damage):
+
+1. **The ball count is three variables** that always move together (`ballStart`, `ballEnd`, `TotalBall`); the launch loop uses the first two, so setting only `TotalBall` launches a single ball however many the page believes in.
+2. **Every block has a companion label** (its health text), pinned to it and paired by an id stored in the block. The game processes hits through that label, so a block without one barely takes damage.
+3. **New objects only exist from the next game tick**, so the page reads the board back and compares it with the scene (blocks within a pixel, same health, same labels, ball count and score) before the bot is allowed to look.
+
+How faithful the result is, checked against the simulator the bot predicts with: on ten random scenes of light blocks (health 1 to 5, one to four balls) the real shot did **exactly** the predicted damage in **10 of 10**. On ten scenes of tough blocks (health 15 to 60) it did in 2 of 10, which matches how the simulator does on ordinary games with tough blocks (long chains of bounces off blocks that need many hits are where it drifts), so a built board behaves like a real one. The game itself is deterministic: the same board and aim gave the same damage on every repeat.
 
 ## What it is not
 - **Real time only.** The game runs at its normal speed; speeding it up would change its physics.

@@ -63,6 +63,11 @@ table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding
       <p class="note" style="font-size:.78rem">Rings on the board: red = must break this shot, orange = next, yellow = the one after, faint dashed cyan = further rows still being weighed, lighter the further out.</p>
       <div class="readout" id="now">Press Start. The first game begins on its own.</div>
       <div class="readout" id="engine">Loading the best bot...</div><p class="note"><b>Best bot</b>: a learned scorer ranks all 781 aims and the game's own physics simulates the most promising ones. It then chooses, in order: survive, break blocks that are about to become last-chance, get the extra ball, do the most damage. If every tested shot would lose, it searches the rest until one survives. It tries fewer shots when nothing is near the line. It thinks on your device; the other strategies use no simulator.</p></section>
+    <section class="lab" id="puzzle"><h2>Build a puzzle</h2>
+      <p class="note">Describe a board and the real game is made to build exactly that, then the bot can play on from it. Each block is <code>[x, y, health]</code>: <b>x</b> runs 60 (left) to 660 (right), <b>y</b> runs 150 (near the top, the danger end: a block this high must break at once) to 1270 (the bottom, where new rows appear), blocks must be at least 115 apart. <code>balls</code> is how many balls the bot fires each turn, <code>score</code> where the counter starts. The bot must be paused first.</p>
+      <textarea id="scene-text" rows="11" spellcheck="false" aria-label="The scene, as JSON" style="width:100%;box-sizing:border-box;font:.85rem ui-monospace,monospace;background:var(--code);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem"></textarea>
+      <div class="controls"><button class="small" id="scene-example">Load the example</button> <button class="small" id="scene-build">Build it</button> <button class="small" id="scene-build-start">Build it and start the bot</button></div>
+      <div class="readout" id="scene-status" role="status" aria-live="polite">Nothing built yet.</div></section>
     <section class="lab"><h2>Results so far</h2><div class="readout" id="summary">No games yet.</div><div id="bars"></div>
       <div class="wide"><table class="log" id="turns"><thead><tr><th>turn</th><th>how</th><th>balls</th><th>blocks</th><th>predicted</th><th>actual</th><th>think s</th></tr></thead><tbody></tbody></table></div></section>
   </div>
@@ -99,5 +104,5 @@ table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding
 <p class="note">The game "FALLING BALLZ" is shown here at the site owner's request and is not part of the nn-dashboard source or its licence. See <a href="../docs/PLAY.html">the notice</a>.</p>
 </main>
 <footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../docs/PLAY.html">how this works</a> · <a href="https://github.com/jaxsondez93-arch/nn-dashboard">source</a></footer>
-<script src="bot.js"></script><script src="clock.js"></script><script src="stats.js"></script><script src="analysis.js"></script><script src="thought.js"></script><script src="explore.js"></script><script src="system.js"></script><script src="hud.js"></script><script src="driver.js"></script><script src="../register-sw.js"></script>
+<script src="bot.js"></script><script src="clock.js"></script><script src="stats.js"></script><script src="analysis.js"></script><script src="thought.js"></script><script src="explore.js"></script><script src="system.js"></script><script src="hud.js"></script><script src="driver.js"></script><script src="scene.js"></script><script src="../register-sw.js"></script>
 </body></html>
