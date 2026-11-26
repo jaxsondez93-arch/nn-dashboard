@@ -14,8 +14,12 @@
   const rank = (b) => (b.lost ? 0 : 1e9) + (b.got || 0) * 1e6 + b.damage;
   function ray(i, r, colour, alpha, width) { const [x, y] = tip(i, r); g.strokeStyle = `rgba(${colour},${alpha})`; g.lineWidth = width; g.beginPath(); g.moveTo(LX, LY); g.lineTo(x, y); g.stroke(); return [x, y]; }
   function dot(x, y, radius, colour, alpha) { g.fillStyle = `rgba(${colour},${alpha})`; g.beginPath(); g.arc(x, y, radius, 0, 7); g.fill(); }
-  /* Rings around the blocks that matter: red must break this shot, orange next, yellow the one after. Block positions are in game units; the view is 1.5006 times smaller. */
-  function rings(now) { const S = 1.5005861664712778; for (const [, x, y, hp] of threats) { const left = window.NNHud ? NNHud.rowsLeft(y) : 9; if (left > 2) continue; const c = left <= 0 ? "255,70,70" : left === 1 ? "255,150,50" : "255,215,80", beat = calm ? 0 : Math.sin(now / (left <= 0 ? 90 : 180)) * (left <= 0 ? 5 : 2.5), cx = (x - 9) / S, cy = (y - 4) / S;
+  /* Rings around every block still standing: red must break this shot, orange next, yellow the one after, then cyan rings for every row further out, fading with 1/left exactly as the scoring
+     does (search.js: "near += (hp - h) / left") — no row is ever skipped, the same as the scoring itself; a ring just becomes too faint to draw once it would round to nothing. Block positions
+     are in game units; the view is 1.5006 times smaller. */
+  function rings(now) { const S = 1.5005861664712778; for (const [, x, y, hp] of threats) { const left = window.NNHud ? NNHud.rowsLeft(y) : 9; const cx = (x - 9) / S, cy = (y - 4) / S;
+      if (left > 2) { const a = Math.min(0.55, 1.4 / left); if (a <= 0.02) continue; g.strokeStyle = `rgba(130,210,255,${a})`; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, 47, 0, 7); g.stroke(); continue; }  // solid, not dashed: a dashed line at low alpha was nearly invisible on a moving board
+      const c = left <= 0 ? "255,70,70" : left === 1 ? "255,150,50" : "255,215,80", beat = calm ? 0 : Math.sin(now / (left <= 0 ? 90 : 180)) * (left <= 0 ? 5 : 2.5);
       g.strokeStyle = `rgba(${c},.95)`; g.lineWidth = left <= 0 ? 4 : 2.5; g.setLineDash(left === 2 ? [6, 6] : []); g.beginPath(); g.arc(cx, cy, 47 + beat, 0, 7); g.stroke(); g.setLineDash([]); if (left <= 1) { g.fillStyle = `rgba(${c},.95)`; g.font = "bold 12px ui-monospace, monospace"; g.fillText(left <= 0 ? `NOW · ${hp}` : `NEXT · ${hp}`, cx - 26, cy - 54 - beat); } } }
   function draw(now) {
     g.clearRect(0, 0, W, H); const fade = endAt ? Math.max(0, 1 - (now - endAt) / 900) : 1;

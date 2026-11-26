@@ -19,7 +19,8 @@
   function records() { const el = $("hud-best"); if (el) el.textContent = best.score ? `best on this device: score ${best.score.toLocaleString()} · turn ${best.turn.toLocaleString()} · ${best.balls} balls` : "no game finished on this device yet"; const r = $("hud-record"); if (r) r.textContent = `project record: score ${RECORD.score.toLocaleString()} · turn ${RECORD.turn.toLocaleString()} · ${RECORD.balls} balls (${RECORD.when})`; }
   api.turn = (board, score, turn) => {
     const value = Number.isFinite(score) ? score : 0; count("hud-turn", turn); count("hud-score", value); count("hud-balls", board.balls);
-    const left = shotsLeft(board.blocks), meter = $("hud-danger"); if (meter) { const level = left === null ? 4 : Math.min(4, left); meter.dataset.level = level; $("hud-danger-text").textContent = left === null ? "clear board" : left === 1 ? "MUST BREAK THIS SHOT" : left === 2 ? "2 shots left" : left === 3 ? "3 shots left" : "safe for now"; }
+    // Every layer gets its own tab (1 shot away up to the farthest possible, 10): there is no "safe" bucket, since some block is always some number of shots away.
+    const left = shotsLeft(board.blocks), meter = $("hud-danger"); if (meter) { const level = left === null ? 10 : Math.min(10, left); meter.dataset.level = level; $("hud-danger-text").textContent = left === null ? "clear board" : left === 1 ? "MUST BREAK THIS SHOT" : `${left} shots away`; }
     for (const m of crossed(MARKS.score, seen.score, value)) toast(m === RECORD.score ? "RECORD SCORE MATCHED" : `Score ${m.toLocaleString()} reached`);
     for (const m of crossed(MARKS.balls, seen.balls, board.balls)) toast(`${m} balls`);
     if (value > RECORD.score && seen.score <= RECORD.score) toast("NEW PROJECT RECORD");

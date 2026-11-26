@@ -19,18 +19,22 @@ $("speed").addEventListener("change", applySpeed);
 setInterval(() => { applySpeed(); showSpeed(); }, 1000);
 
 /* ---------- the best bot (runs in a background worker so the game stays smooth) ---------- */
-let spare = 1, bot = null, botReady = false, botWaiting = new Map(), botSeq = 0;
+let spare = 1, bot = null, botReady = false, botWaiting = new Map(), botSeq = 0, baseBudget = null, msPerSim = null;
+const TARGET_MS = 6000, MIN_BUDGET = 14;                              // keep a turn's base search near this long; never shrink below the minimum seed count needs
+function nextBudget() { if (!baseBudget || !msPerSim) return undefined; return Math.max(MIN_BUDGET, Math.min(baseBudget, Math.round(TARGET_MS / msPerSim))); }
 function startBestBot() {
   try { bot = new Worker("best/worker.js"); } catch (e) { engineNote("This browser could not start the best bot."); return; }
   bot.onmessage = (e) => { const m = e.data;
-    if (m.type === "ready") { botReady = true; spare = m.spare || 1; engineNote(`Best bot ready (it runs on this device, with up to ${spare} processor${spare > 1 ? "s" : ""}).`); }
+    if (m.type === "ready") { botReady = true; spare = m.spare || 1; baseBudget = m.baseBudget || null; engineNote(`Best bot ready (it runs on this device, with up to ${spare} processor${spare > 1 ? "s" : ""}).`); }
     else if (m.type === "progress") { const w = botWaiting.get(m.id); if (w) { w.heard = Date.now(); if (window.NNThought) NNThought.progress(m.n, m.of, m.info); if (window.NNSystem && m.info && m.n) NNSystem.sim(); if (m.n) say(m.of > 100 ? `danger: searching every aim for a way to survive, ${m.n}/${m.of}` : `thinking ${m.n}/${m.of}`); } }
-    else if (m.type === "choice") { const f = botWaiting.get(m.id); botWaiting.delete(m.id); if (f) { if (window.NNThought) NNThought.choose(m.result); f.ok(m.result); } }
+    else if (m.type === "choice") { const f = botWaiting.get(m.id); botWaiting.delete(m.id);
+      if (m.result.sims) { const sample = m.result.think_ms / m.result.sims; msPerSim = msPerSim === null ? sample : msPerSim * 0.7 + sample * 0.3; }      // the budget asked for next time scales down as simulations get slower (more balls), and back up as they get cheaper again
+      if (f) { if (window.NNThought) NNThought.choose(m.result); f.ok(m.result); } }
     else if (m.type === "error") { if (m.id === undefined) engineNote("The best bot is not available here: " + m.message); else { const f = botWaiting.get(m.id); botWaiting.delete(m.id); if (f) f.fail(new Error(m.message)); } } };
   bot.onerror = () => engineNote("The best bot is not available on this copy of the site (engine files missing).");
 }
 function engineNote(s) { $("engine").textContent = s; }
-function bestChoice(board) { if (window.NNThought) NNThought.start(board); return new Promise((ok, fail) => { const id = ++botSeq; const w = { ok, fail, heard: Date.now() }; botWaiting.set(id, w); bot.postMessage({ cmd: "choose", id, board, cores: $("power").value === "1" ? 1 : spare }); const watch = setInterval(() => { if (!botWaiting.has(id)) clearInterval(watch); else if (Date.now() - w.heard > 120000) { clearInterval(watch); botWaiting.delete(id); fail(new Error("timed out")); } }, 5000); }); }      // gives up only after 2 minutes with no progress: an emergency search may be long
+function bestChoice(board) { if (window.NNThought) NNThought.start(board); return new Promise((ok, fail) => { const id = ++botSeq; const w = { ok, fail, heard: Date.now() }; botWaiting.set(id, w); bot.postMessage({ cmd: "choose", id, board, cores: $("power").value === "1" ? 1 : spare, budget: nextBudget() }); const watch = setInterval(() => { if (!botWaiting.has(id)) clearInterval(watch); else if (Date.now() - w.heard > 120000) { clearInterval(watch); botWaiting.delete(id); fail(new Error("timed out")); } }, 5000); }); }      // gives up only after 2 minutes with no progress: an emergency search may be long
 const boardFor = (snap, turn) => ({ blocks: snap.blocks.map((b) => [b.uid, b.x, b.y, b.hp]).sort((a, b) => a[0] - b[0]), pickups: snap.pickups.map((p) => [p.x, p.y]), balls: snap.vars.TotalBall, turn });
 function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
