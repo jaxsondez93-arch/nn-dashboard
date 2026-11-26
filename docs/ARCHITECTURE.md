@@ -34,3 +34,37 @@ The server aligns everything on a common time grid and does the summaries. The p
 
 ## Staying up
 The page retries every 5 seconds if the server disappears and refreshes when you return to the tab. The provided `nn-dashboard.service` restarts the server if it exits.
+
+# The website's pages
+
+Everything below runs in the visitor's browser. The only thing that ever leaves a device is a volunteer's results (see [lending computer time](CONTRIBUTE_COMPUTE.md)).
+
+## Watching the bot (`web/play/`)
+One turn, in order: `driver.js` reads the settled board from the running game, asks the bot worker for an aim, taps it, waits for the balls, and logs what happened.
+
+| file | its one job |
+|---|---|
+| `best/worker.js` | answers "which aim?"; shares the work among helpers when allowed |
+| `best/search.js` | the choosing rule, written as a plan that asks for batches of shots, so one processor or several give the same choice |
+| `best/sim.js` | one shot, simulated with the game's own physics library and the game's event rules |
+| `best/features.js` | the learned scorer that ranks all 781 aims |
+| `best/pool.js`, `best/simworker.js` | helper workers that simulate shots |
+| `driver.js` | the play loop, the log (kept on the device) and the page's controls |
+| `clock.js` | runs inside the game: more fixed frames per screen refresh while shots fly, never a stretched frame |
+| `thought.js` | the see-through display of what the bot is testing, with rings on blocks about to reach the line |
+| `hud.js` | scoreboard, danger meter, records, milestones |
+| `stats.js` | the statistics (no page needed, so they are tested directly) |
+| `analysis.js`, `explore.js`, `system.js` | the accuracy panel, the exploring tools and the machine readings |
+| `record.json` | the record game, turn by turn |
+
+## The choosing rule, in stages
+1. Test the most promising spread-out shots (16 when nothing is near the line, otherwise 30).
+2. If every one loses, test the rest until one survives.
+3. If a block would be last-chance next turn and no shot breaks it, test shots aimed at it.
+4. If there is an extra ball and no shot collects it, test shots aimed at it.
+5. Play the best tested shot: survive, then low blocks, then the ball, then damage.
+
+What each stage guarantees, and what it does not: [bot guarantees](math/BOT_GUARANTEES.md).
+
+## Lending computer time (`web/contribute/`)
+`contribute.js` runs the consent box and the sending; `power.js` turns the slider and safety switches into a number of workers; `outbox.js` packs messages; `monitor.js` draws "Your device"; `worker.js` and `tasks.js` simulate the work.
