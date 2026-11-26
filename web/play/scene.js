@@ -10,7 +10,7 @@
 (function (root) {
   "use strict";
   // The game accepts a block anywhere in the play field; its own rows keep to the ranges below. Two blocks of one row can sit as close as 100 apart (a row of two: 260 and 360), so that is the least allowed.
-  const LIMITS = { xMin: 60, xMax: 660, yMin: 150, yMax: 1270, gap: 100, maxBlocks: 40, maxPickups: 8 };            // no limit on the score, the balls or the health: each only has to be a whole number (score 0 or more, balls and health 1 or more). The game's own numbers are 64-bit floats: see inexact()
+  const LIMITS = { xMin: 60, xMax: 660, yMin: 150, yMax: 1270, gap: 100, maxBlocks: 40, maxPickups: 1 };            // no limit on the score, the balls or the health: each only has to be a whole number (score 0 or more, balls and health 1 or more). The game's own numbers are 64-bit floats: see inexact()
   const isInt = (v) => Number.isInteger(v), num = (v) => typeof v === "number" && Number.isFinite(v), empty = (v) => v === undefined || v === null || v === "";
 
   /* ---------- what the game's own rules say (read from its event sheet) ---------- */
@@ -95,7 +95,7 @@
     const pickups = [];
     if (!empty(input.pickups)) {
       if (!Array.isArray(input.pickups)) errors.push("pickups must be a list, each written [x, y].");
-      else if (input.pickups.length > L.maxPickups) errors.push(`at most ${L.maxPickups} pickups.`);
+      else if (input.pickups.length > L.maxPickups) errors.push("only one pickup at a time: the game makes the next one only when its pickup timer reads 7, and the timer is already past 7 while a pickup is on the board.");
       else input.pickups.forEach((q, i) => {
         const n = i + 1; let x, y;
         if (Array.isArray(q) && q.length === 2) [x, y] = q; else if (q && typeof q === "object" && !Array.isArray(q)) ({ x, y } = q); else { errors.push(`pickup ${n}: write it as [x, y].`); return; }
@@ -273,7 +273,7 @@
   async function fire(pixel, opts) {
     opts = opts || {}; if (!isSettled()) throw new Error("the game is not at rest yet");
     const c = gameClock(), grab = () => { const t = runtime().types_by_index, g = globals(); return { blocks: t[11].instances.map((b) => ({ uid: b.uid, x: b.x, y: b.y, hp: b.instance_vars[0] })), pickups: t[22].instances.length, score: g.score, balls: g.TotalBall }; };
-    const before = grab(), framesBefore = c ? c.ballFrames : 0, t0 = performance.now(); let seen = false, outcome = null;
+    const before = grab(), framesBefore = c ? c.ballFrames : 0, framesAtTap = c ? c.frames : 0, t0 = performance.now(); let seen = false, outcome = null;
     await tap(pixel[0], pixel[1], 80);
     if (c) { if (typeof applySpeed === "function") applySpeed(); else if (opts.speed !== undefined) c.speed = opts.speed; c.turbo = true; }       // fast only while the balls fly, like the bot
     const t1 = performance.now();
@@ -281,7 +281,7 @@
       await sleep(150); if (layout() !== "Game") { outcome = "left"; break; }
       if (runtime().types_by_index[9].instances.length > 0 || (c && c.ballFrames > framesBefore)) seen = true;
       if (seen && isSettled()) { outcome = "ok"; break; }
-      if (!seen && performance.now() - t1 > 8000) { outcome = "no_launch"; break; }
+      if (!seen && (performance.now() - t1 > 8000 || (c && c.frames - framesAtTap >= 45 && globals().Tap === 0))) { outcome = "no_launch"; break; }       // no tap taken and no ball after 45 frames: none is coming
       if (performance.now() - t1 > 120000 + 500 * before.balls) { outcome = "stuck"; break; }
     }
     if (c) c.turbo = false;

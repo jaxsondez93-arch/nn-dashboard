@@ -87,14 +87,14 @@ async function loop(id) {
       if (!running || id !== loopId) break; if (layoutName() !== "Game") { t--; continue; } say(`game ${cur.n}, turn ${t}`);
     } else pick = NNExactBot.pickAim(strategy, snap.blocks, rng);
     const rec = { cores: pick.cores, turn: t, arm: pick.arm, pickups: pick.pickups, collects: pick.collects, rescued: pick.rescued, searched_all: pick.searched_all, target: pick.target, index: pick.index, pixel: pick.pixel, predicted: pick.predicted, think_s: pick.think_s, sims: pick.sims, balls: snap.vars.TotalBall, blocks: snap.blocks.length, hp_before: hpTotal(snap), score: snap.score, board: boardFor(snap, t) }, t0 = performance.now();
-    const ballsBefore = gameClock() ? gameClock().ballFrames : 0;
+    const ballsBefore = gameClock() ? gameClock().ballFrames : 0, framesBefore = gameClock() ? gameClock().frames : 0;
     await tapAt(pick.pixel[0], pick.pixel[1], 80); applySpeed(); const used = speedNow(); turbo(true);
     let seen = false, res = null, tr = performance.now();
     while (running && id === loopId) {
       await sleep(150); const l = layoutName(); if (l !== "Game") { res = "left"; break; }
       const s = snapshot(); if (!s) continue; if (s.n9 > 0) { seen = true; continue; }
       if (gameClock() && gameClock().ballFrames > ballsBefore) seen = true;
-      if (seen && settled(s)) { res = s; break; } else if (!seen && performance.now() - tr > 8000) { res = "no_launch"; break; } if (performance.now() - tr > 120000 + 500 * snap.vars.TotalBall) { res = "stuck"; break; }
+      if (seen && settled(s)) { res = s; break; } else if (!seen && (performance.now() - tr > 8000 || (gameClock() && gameClock().frames - framesBefore >= 45 && s.vars.Tap === 0))) { res = "no_launch"; break; }       // the game takes a tap within a frame or two: if 45 frames passed with no tap taken and no ball, none is coming if (performance.now() - tr > 120000 + 500 * snap.vars.TotalBall) { res = "stuck"; break; }
     }
     turbo(false);
     if (res === "no_launch") { t--; continue; }

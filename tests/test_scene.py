@@ -80,12 +80,12 @@ class Validate(Base):
         self.assertIn("at most 40", " ".join(self.check({"blocks": many})["errors"]))
 
     def test_pickups_are_accepted_with_the_same_rules_as_blocks(self):
-        r = self.check({"blocks": [[150, 420, 5]], "pickups": [[300, 500], [500, 700]], "counter": 2}); self.assertNotIn("errors", r)
-        self.assertEqual((r["scene"]["pickups"], r["scene"]["counter"]), ([[300, 500], [500, 700]], 2))
+        r = self.check({"blocks": [[150, 420, 5]], "pickups": [[300, 500]], "counter": 2}); self.assertNotIn("errors", r)
+        self.assertEqual((r["scene"]["pickups"], r["scene"]["counter"]), ([[300, 500]], 2))
         self.assertEqual(self.check({"blocks": [[150, 420, 5]], "pickups": [{"x": 300, "y": 500}]})["scene"]["pickups"], [[300, 500]])      # the object form is read too
         self.assertEqual(self.check({"blocks": [[150, 420, 5]]})["scene"]["pickups"], [])                                                       # none is the default
         for bad, word in (({"pickups": [[59, 500]]}, "pickup 1: x"), ({"pickups": [[300, 1271]]}, "pickup 1: y"), ({"pickups": [[300]]}, "write it as [x, y]"), ({"pickups": "no"}, "must be a list"),
-                          ({"pickups": [[x * 60 + 60, 800] for x in range(9)]}, "at most 8"), ({"pickups": [[160, 470]]}, "block 1 and pickup 1 overlap"), ({"pickups": [[300, 500], [350, 500]]}, "pickups 1 and 2 overlap")):
+                          ({"pickups": [[300, 500], [500, 700]]}, "only one pickup at a time"), ({"pickups": [[160, 470]]}, "block 1 and pickup 1 overlap")):
             r = self.check(dict({"blocks": [[150, 420, 5]]}, **bad)); self.assertIn("errors", r, bad); self.assertIn(word, " ".join(r["errors"]), bad)
 
     def test_the_health_counter_and_the_pickup_timer_have_their_own_ranges(self):
