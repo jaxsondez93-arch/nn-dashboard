@@ -10,7 +10,7 @@
 (function (root) {
   "use strict";
   // The game accepts a block anywhere in the play field; its own rows keep to the ranges below. Two blocks of one row can sit as close as 100 apart (a row of two: 260 and 360), so that is the least allowed.
-  const LIMITS = { xMin: 60, xMax: 660, yMin: 150, yMax: 1270, gap: 100, maxBlocks: 40, maxBalls: 1000, maxHealth: 99999, maxScore: 1e9 };
+  const LIMITS = { xMin: 60, xMax: 660, yMin: 150, yMax: 1270, gap: 100, maxBlocks: 40, maxBalls: 1000, maxHealth: 99999 };            // no limit on the score: it only has to be a whole number, 0 or more
   const isInt = (v) => Number.isInteger(v), num = (v) => typeof v === "number" && Number.isFinite(v), empty = (v) => v === undefined || v === null || v === "";
 
   /* ---------- what the game's own rules say (read from its event sheet) ---------- */
@@ -71,7 +71,7 @@
     if (!input || typeof input !== "object" || Array.isArray(input)) return { errors: ["The scene must be an object like { \"score\": 38 } or { \"balls\": 12, \"blocks\": [[150, 420, 30]] }."] };
     const balls = empty(input.balls) ? 1 : input.balls, score = empty(input.score) ? 0 : input.score;
     if (!isInt(balls) || balls < 1 || balls > L.maxBalls) errors.push(`balls must be a whole number from 1 to ${L.maxBalls}.`);
-    if (!isInt(score) || score < 0 || score > L.maxScore) errors.push("score must be a whole number, 0 or more.");
+    if (!isInt(score) || score < 0) errors.push("score must be a whole number, 0 or more.");
     if (!empty(input.health) && (!isInt(input.health) || input.health < 1 || input.health > L.maxHealth)) errors.push(`health must be a whole number from 1 to ${L.maxHealth}.`);
     if (!empty(input.turn) && (!isInt(input.turn) || input.turn < 1)) errors.push("turn must be a whole number, 1 or more.");
     if (!empty(input.seed) && !isInt(input.seed)) errors.push("seed must be a whole number.");
@@ -99,8 +99,8 @@
     return { scene };
   }
 
-  /* Fill in whatever was left empty, and change nothing that was entered. Every number entered (turn, score, balls, health, or the strongest block) says how far into a game it is;
-     the empty ones take the average of those. With one number that is that number's own estimate. Returns { scene, filled, kept, turn, estimates } or { errors }.
+  /* Fill in whatever was left empty, and change nothing that was entered. Every number entered (turn, score, balls, health) says how far into a game it is; the empty ones take the average of those.
+     If no number was entered at all, the strongest block's health stands in for one. With one number that is that number's own estimate. Returns { scene, filled, kept, turn, estimates } or { errors }.
      "data" is web/play/progression.json (measured from real games by tools/fit_progression.py); without it only a scene that already has its blocks can be checked. */
   function complete(input, data) {
     if (!input || typeof input !== "object" || Array.isArray(input)) return validate(input);
@@ -113,14 +113,16 @@
     const estimates = [];
     for (const key of ["turn", "score", "balls", "health"]) if (key in entered) estimates.push({ field: key, turn: turnFrom[key](entered[key], f) });
     const healths = Array.isArray(entered.blocks) ? entered.blocks.map((b) => (Array.isArray(b) ? b[b.length - 1] : b && b.hp)).filter(isInt) : [];
-    if (healths.length && !("health" in entered)) estimates.push({ field: "the strongest block", turn: turnFrom.health(Math.max(...healths)) });
+    if (healths.length && !estimates.length) estimates.push({ field: "the strongest block", turn: turnFrom.health(Math.max(...healths)) });      // only when no number was entered: a number you typed decides, blocks do not dilute it
     if (!estimates.length) return entered.blocks ? validate(input) : { errors: ["Give at least one of score, balls, health or turn (or a list of blocks) and the rest is filled in for you."] };
     const T = Math.max(1, estimates.reduce((s, e) => s + e.turn, 0) / estimates.length), filled = [], scene = {};
     const take = (key, make, why) => { if (key in entered) scene[key] = entered[key]; else { scene[key] = make(); filled.push({ field: key, value: scene[key], why }); } };
     take("turn", () => valueAt.turn(T), "the average turn of what you entered");
     take("score", () => valueAt.score(T, f), "a real game's score at that turn");
-    take("balls", () => valueAt.balls(T, f), "a real game's ball count at that turn");
-    take("health", () => valueAt.health(T), "the health of new blocks at that turn: 1 + turn / 3");
+    const ballsAtT = valueAt.balls(T, f), healthAtT = valueAt.health(T);                                        // a very high score points to a very late game: more balls and health than can be built
+    take("balls", () => Math.min(LIMITS.maxBalls, ballsAtT), ballsAtT > LIMITS.maxBalls ? `a real game that far in would have ${ballsAtT} balls; the most built is ${LIMITS.maxBalls}` : "a real game's ball count at that turn");
+    take("health", () => Math.min(LIMITS.maxHealth, healthAtT), healthAtT > LIMITS.maxHealth ? `a real game that far in would have health ${healthAtT}; the most built is ${LIMITS.maxHealth}` : "the health of new blocks at that turn: 1 + turn / 3");
+    for (const x of filled) if ((x.field === "balls" && ballsAtT > LIMITS.maxBalls) || (x.field === "health" && healthAtT > LIMITS.maxHealth)) x.limited = true;
     if (entered.blocks) scene.blocks = entered.blocks;
     else {
       const seed = "seed" in entered ? entered.seed : hashSeed({ turn: entered.turn, score: entered.score, balls: entered.balls, health: entered.health });
@@ -143,7 +145,6 @@
   }
   const EXAMPLE_TEXT = `{
  "name": "Example puzzle: five blocks, twelve balls",
- "score": 0,
  "balls": 12,
  "blocks": [
   [150, 420, 30],
@@ -215,31 +216,33 @@
   /* What to complete: the number boxes if any has something in it, otherwise whatever (partial) scene is in the scene box. */
   function source() {
     const { partial, errors } = fromBoxes(); if (errors.length) throw new Error(errors.join(" "));
-    if (Object.keys(partial).length) return partial;
+    if (Object.keys(partial).length) return { input: partial, fromBoxes: true };
     const raw = text.value.trim(); if (!raw) throw new Error("Type at least one number in the boxes above, or load the example.");
-    let v; try { v = JSON.parse(raw); } catch (e) { throw new Error(`The scene box is not valid JSON (${e.message}).`); } return v;
+    let v; try { v = JSON.parse(raw); } catch (e) { throw new Error(`The scene box is not valid JSON (${e.message}).`); } return { input: v, fromBoxes: false };
   }
+  const clearBoxes = () => FIELDS.forEach((k) => { box(k).value = ""; });                 // their numbers now live in the scene box
   function explain(r) {
     const kept = r.kept.length ? `Kept exactly as you entered: ${r.kept.join(", ")}.` : "";
     const round = (x) => Math.round(x);
     const how = r.estimates.length > 1 ? ` Your numbers point to turns ${r.estimates.map((e) => `${round(e.turn)} (${e.field})`).join(", ")}, so the empty ones use their average, turn ${round(r.turn)}.` : ` That points to about turn ${round(r.turn)} of a real game.`;
-    return kept + how + (r.filled.length ? ` Filled in: ${r.filled.map((x) => (x.field === "blocks" ? x.value : `${x.field} ${x.value}`)).join(", ")}.` : "");
+    return kept + how + (r.filled.length ? ` Filled in: ${r.filled.map((x) => (x.field === "blocks" ? x.value : `${x.field} ${x.value}${x.limited ? " (the most the page builds)" : ""}`)).join(", ")}.` : "");
   }
   async function fill(another) {
     await loaded;
     try {
-      const input = Object.assign({}, source()); if (another) { delete input.blocks; input.seed = (layoutSeed === null ? 0 : layoutSeed) + 1; }
+      const { input: base, fromBoxes: typed } = source(), input = Object.assign({}, base); if (another) { delete input.blocks; input.seed = (layoutSeed === null ? 0 : layoutSeed) + 1; }
       const r = complete(input, data); if (r.errors) throw new Error(r.errors.join(" "));
-      text.value = pretty(r.scene); layoutSeed = r.scene.seed === undefined ? null : r.scene.seed; say(explain(r));
+      text.value = pretty(r.scene); if (typed) clearBoxes(); layoutSeed = r.scene.seed === undefined ? null : r.scene.seed; say(explain(r));
     } catch (e) { say(e.message, true); }
   }
   $("scene-fill").onclick = () => { layoutSeed = null; fill(false); }; $("scene-another").onclick = () => fill(true);
-  $("scene-example").onclick = () => { text.value = EXAMPLE_TEXT; say("Example loaded. Change anything you like."); };
+  $("scene-example").onclick = () => { text.value = EXAMPLE_TEXT; say("Example loaded. It has no score written in it, so the score is filled in to match the balls; change the balls and the score follows."); };
   async function go(startBot) {
     buttons.forEach((b) => { b.disabled = true; });
     try {
       await loaded; let scene;
-      if (text.value.trim() === "") { const r = complete(source(), data); if (r.errors) throw new Error(r.errors.join(" ")); scene = r.scene; text.value = pretty(scene); }
+      const typed = Object.keys(fromBoxes().partial).length > 0;                       // numbers typed in the boxes win over whatever is in the scene box
+      if (typed || text.value.trim() === "") { const r = complete(source().input, data); if (r.errors) throw new Error(r.errors.join(" ")); scene = r.scene; text.value = pretty(scene); clearBoxes(); }
       else { const r = parse(text.value, data); if (r.errors) throw new Error(r.errors.join(" ")); scene = r.scene; if (r.filled && r.filled.length) text.value = pretty(scene); }      // a partial scene: show the whole one that is being built
       say("Building: opening the game screen, then placing the blocks...");
       const got = await build(scene);
