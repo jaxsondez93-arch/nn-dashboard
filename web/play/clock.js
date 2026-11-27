@@ -34,14 +34,17 @@
   var gv = null, gvFor = null;
   function globals(r) { if (gvFor !== r) { gv = {}; (r.all_global_vars || []).forEach(function (v) { gv[v.name] = v; }); gvFor = r; } return gv; }
   /* No block and no pickup left while a shot is on: the balls still to come cannot change anything, so end the turn now. It ends by the game's own rule (it ends when ballEnd reaches 0):
-     stop the launching (ballStart = 0), say that only the balls in flight are left (ballEnd = how many), and remove those; each one counts itself off, as the game does when a ball is lost, and ballEnd reaches 0. */
+     stop the launching (ballStart = 0) and set ballEnd to 0 directly. Earlier this counted the balls still in flight into ballEnd and left it to their own
+     destroyed-trigger to count back down to 0, the way the game does when a ball is lost naturally -- but a ball destroyed from here, outside the engine's
+     own per-frame pass, does not reliably fire that trigger, so ballEnd could get stuck above 0 forever (seen live: FirstHit stuck at 1, isSettled() never
+     true). Setting it to 0 outright needs nothing from that trigger. The flying balls are still destroyed directly, since isSettled() also needs n9 at 0. */
   function endIfEmpty(r) {
     if (!r || !r.running_layout || r.running_layout.name !== "Game" || !r.types_by_index) return;
     var t = r.types_by_index; if (!t[9] || !t[11] || !t[22] || t[11].instances.length || t[22].instances.length) return;
     var g = globals(r); if (!g.Tap || g.Tap.data !== 1 || !g.ballStart || !g.ballEnd) return;
     var flying = t[9].instances.slice(); if (!flying.length && !(g.ballStart.data > 0)) return;           // nothing left to cut short: the turn ends by itself
     if (clock.frames - clock.cutAt < 30) return; clock.cutAt = clock.frames;
-    g.ballStart.data = 0; g.ballEnd.data = flying.length; for (var i = 0; i < flying.length; i++) r.DestroyInstance(flying[i]); clock.cuts++;
+    g.ballStart.data = 0; g.ballEnd.data = 0; for (var i = 0; i < flying.length; i++) r.DestroyInstance(flying[i]); clock.cuts++;
   }
   var meterMs = 0, meterFrames = 0;
   function screen() {
