@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en"><head><script src="../theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Does splitting the angle find the best shot? · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb">
+<style>
+.verdict { display: flex; gap: .9rem; flex-wrap: wrap; margin: 1.2rem 0 1.6rem; }
+.vcard { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: .85rem 1.1rem; flex: 1; min-width: 160px; }
+.vcard span { display: block; color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; }
+.vcard b { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.vcard.true b { color: var(--ok); } .vcard.search b { color: var(--accent2); }
+.chart-shell { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem 1.1rem .4rem; position: relative; margin: 1rem 0; }
+svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+.legend { display: flex; gap: 1.3rem; flex-wrap: wrap; font-size: .85rem; color: var(--muted); padding: .2rem 0 .9rem; }
+.legend-item { display: flex; align-items: center; gap: .45rem; }
+.swatch-line { width: 16px; height: 2px; border-radius: 1px; }
+#tooltip { position: absolute; pointer-events: none; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .65rem; font-size: .8rem; line-height: 1.4; opacity: 0; transition: opacity .1s; white-space: nowrap; z-index: 5; }
+#tooltip b { font-variant-numeric: tabular-nums; }
+#tooltip .k { color: var(--muted); }
+details { margin-top: 1rem; } summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body><header class="top"><a class="brand" href="../index.html">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="../play/">Watch the bot play</a><a href="../play/puzzle.html">Build a puzzle</a><a href="../yourself/">Play it yourself</a><a href="../contribute/">Lend your processor</a><a href="PLAIN_ENGLISH.html">In plain English</a><a href="README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
+<main><article>
+<h1>Does splitting the angle in half find the best shot?</h1>
+<p>A reader proposed a faster way to aim than brute force: shoot the two ends of the valid range, keep whichever did better, then try two points straddling it, narrowing each round. Tested here directly against <a href="https://jaxsondez93-arch.github.io/ballz-daily-puzzle/">the day's puzzle board</a>, with the same real physics engine the project uses everywhere, against a fine 341-point sweep of the same board (the closest thing to "every angle" that's practical to compute).</p>
+
+<div class="verdict">
+  <div class="vcard true"><span>True best (fine sweep)</span><b>27° &rarr; 8 of 15</b></div>
+  <div class="vcard search"><span>Bisection search landed on</span><b>50.8° &rarr; 6 of 15</b></div>
+  <div class="vcard"><span>Rounds / shots used</span><b>7 rounds, 14 shots</b></div>
+</div>
+
+<div class="chart-shell">
+  <div class="legend">
+    <div class="legend-item"><span class="swatch-line" style="background:var(--accent)"></span>Full sweep — damage at every 0.5°</div>
+    <div class="legend-item"><span class="swatch-line" style="background:var(--accent2);height:0;border-top:2px dashed var(--accent2)"></span>Bisection search — each shot, in order</div>
+  </div>
+  <div id="chart-mount" style="position:relative"></div>
+</div>
+
+<blockquote><strong>Why it missed the peak:</strong> the real damage curve isn't a smooth hill with one summit — it's mostly flat at zero, with a few narrow, spiky pockets where a shot actually threads the blocks. The true best (27°) sits inside the first pocket, right next to where the search started. But round 1 compared 16° (0 damage) against 55.75° (4 damage) and moved toward 55.75° — stepping over the 27° pocket without ever landing in it, and the method has no way to look back once it's committed to a side. Narrowing in on a winner works well for a single smooth peak; this board's landscape has several separate ones, and a few extra sample points chosen by halving isn't enough to tell which of the flat-zero stretches is hiding one.</blockquote>
+
+<details>
+  <summary>Search trace, round by round</summary>
+  <div class="table-wrap"><table id="trace-table">
+    <thead><tr><th>Round</th><th>Angle A</th><th>Damage</th><th>Angle B</th><th>Damage</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</details>
+</article></main>
+<footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../index.html">home</a> · <a href="../playground/">playground</a></footer>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js").catch(function(){});</script>
+<script>
+(function () {
+  "use strict";
+  var SWEEP = [{"deg": 10, "damage": 0}, {"deg": 10.5, "damage": 0}, {"deg": 11, "damage": 0}, {"deg": 11.5, "damage": 0}, {"deg": 12, "damage": 0}, {"deg": 12.5, "damage": 0}, {"deg": 13, "damage": 0}, {"deg": 13.5, "damage": 0}, {"deg": 14, "damage": 0}, {"deg": 14.5, "damage": 0}, {"deg": 15, "damage": 0}, {"deg": 15.5, "damage": 0}, {"deg": 16, "damage": 0}, {"deg": 16.5, "damage": 0}, {"deg": 17, "damage": 0}, {"deg": 17.5, "damage": 0}, {"deg": 18, "damage": 0}, {"deg": 18.5, "damage": 0}, {"deg": 19, "damage": 0}, {"deg": 19.5, "damage": 0}, {"deg": 20, "damage": 0}, {"deg": 20.5, "damage": 0}, {"deg": 21, "damage": 0}, {"deg": 21.5, "damage": 0}, {"deg": 22, "damage": 0}, {"deg": 22.5, "damage": 0}, {"deg": 23, "damage": 4}, {"deg": 23.5, "damage": 0}, {"deg": 24, "damage": 4}, {"deg": 24.5, "damage": 4}, {"deg": 25, "damage": 4}, {"deg": 25.5, "damage": 4}, {"deg": 26, "damage": 4}, {"deg": 26.5, "damage": 6}, {"deg": 27, "damage": 8}, {"deg": 27.5, "damage": 4}, {"deg": 28, "damage": 4}, {"deg": 28.5, "damage": 4}, {"deg": 29, "damage": 4}, {"deg": 29.5, "damage": 4}, {"deg": 30, "damage": 6}, {"deg": 30.5, "damage": 0}, {"deg": 31, "damage": 5}, {"deg": 31.5, "damage": 4}, {"deg": 32, "damage": 0}, {"deg": 32.5, "damage": 0}, {"deg": 33, "damage": 0}, {"deg": 33.5, "damage": 0}, {"deg": 34, "damage": 0}, {"deg": 34.5, "damage": 0}, {"deg": 35, "damage": 0}, {"deg": 35.5, "damage": 0}, {"deg": 36, "damage": 0}, {"deg": 36.5, "damage": 0}, {"deg": 37, "damage": 0}, {"deg": 37.5, "damage": 0}, {"deg": 38, "damage": 0}, {"deg": 38.5, "damage": 0}, {"deg": 39, "damage": 0}, {"deg": 39.5, "damage": 4}, {"deg": 40, "damage": 4}, {"deg": 40.5, "damage": 4}, {"deg": 41, "damage": 4}, {"deg": 41.5, "damage": 4}, {"deg": 42, "damage": 4}, {"deg": 42.5, "damage": 4}, {"deg": 43, "damage": 4}, {"deg": 43.5, "damage": 5}, {"deg": 44, "damage": 4}, {"deg": 44.5, "damage": 5}, {"deg": 45, "damage": 3}, {"deg": 45.5, "damage": 5}, {"deg": 46, "damage": 5}, {"deg": 46.5, "damage": 5}, {"deg": 47, "damage": 5}, {"deg": 47.5, "damage": 5}, {"deg": 48, "damage": 6}, {"deg": 48.5, "damage": 4}, {"deg": 49, "damage": 5}, {"deg": 49.5, "damage": 4}, {"deg": 50, "damage": 5}, {"deg": 50.5, "damage": 3}, {"deg": 51, "damage": 5}, {"deg": 51.5, "damage": 4}, {"deg": 52, "damage": 6}, {"deg": 52.5, "damage": 4}, {"deg": 53, "damage": 5}, {"deg": 53.5, "damage": 4}, {"deg": 54, "damage": 4}, {"deg": 54.5, "damage": 4}, {"deg": 55, "damage": 4}, {"deg": 55.5, "damage": 5}, {"deg": 56, "damage": 4}, {"deg": 56.5, "damage": 4}, {"deg": 57, "damage": 4}, {"deg": 57.5, "damage": 4}, {"deg": 58, "damage": 4}, {"deg": 58.5, "damage": 4}, {"deg": 59, "damage": 0}, {"deg": 59.5, "damage": 0}, {"deg": 60, "damage": 0}, {"deg": 60.5, "damage": 0}, {"deg": 61, "damage": 0}, {"deg": 61.5, "damage": 0}, {"deg": 62, "damage": 0}, {"deg": 62.5, "damage": 0}, {"deg": 63, "damage": 0}, {"deg": 63.5, "damage": 0}, {"deg": 64, "damage": 0}, {"deg": 64.5, "damage": 0}, {"deg": 65, "damage": 0}, {"deg": 65.5, "damage": 0}, {"deg": 66, "damage": 0}, {"deg": 66.5, "damage": 0}, {"deg": 67, "damage": 0}, {"deg": 67.5, "damage": 0}, {"deg": 68, "damage": 0}, {"deg": 68.5, "damage": 0}, {"deg": 69, "damage": 0}, {"deg": 69.5, "damage": 0}, {"deg": 70, "damage": 0}, {"deg": 70.5, "damage": 4}, {"deg": 71, "damage": 4}, {"deg": 71.5, "damage": 6}, {"deg": 72, "damage": 7}, {"deg": 72.5, "damage": 7}, {"deg": 73, "damage": 4}, {"deg": 73.5, "damage": 6}, {"deg": 74, "damage": 7}, {"deg": 74.5, "damage": 5}, {"deg": 75, "damage": 6}, {"deg": 75.5, "damage": 5}, {"deg": 76, "damage": 3}, {"deg": 76.5, "damage": 3}, {"deg": 77, "damage": 3}, {"deg": 77.5, "damage": 3}, {"deg": 78, "damage": 3}, {"deg": 78.5, "damage": 4}, {"deg": 79, "damage": 5}, {"deg": 79.5, "damage": 4}, {"deg": 80, "damage": 4}, {"deg": 80.5, "damage": 4}, {"deg": 81, "damage": 4}, {"deg": 81.5, "damage": 4}, {"deg": 82, "damage": 4}, {"deg": 82.5, "damage": 6}, {"deg": 83, "damage": 5}, {"deg": 83.5, "damage": 4}, {"deg": 84, "damage": 5}, {"deg": 84.5, "damage": 4}, {"deg": 85, "damage": 4}, {"deg": 85.5, "damage": 4}, {"deg": 86, "damage": 4}, {"deg": 86.5, "damage": 0}, {"deg": 87, "damage": 0}, {"deg": 87.5, "damage": 0}, {"deg": 88, "damage": 0}, {"deg": 88.5, "damage": 0}, {"deg": 89, "damage": 0}, {"deg": 89.5, "damage": 0}, {"deg": 90, "damage": 0}, {"deg": 90.5, "damage": 0}, {"deg": 91, "damage": 0}, {"deg": 91.5, "damage": 0}, {"deg": 92, "damage": 0}, {"deg": 92.5, "damage": 0}, {"deg": 93, "damage": 0}, {"deg": 93.5, "damage": 0}, {"deg": 94, "damage": 0}, {"deg": 94.5, "damage": 0}, {"deg": 95, "damage": 0}, {"deg": 95.5, "damage": 0}, {"deg": 96, "damage": 0}, {"deg": 96.5, "damage": 0}, {"deg": 97, "damage": 0}, {"deg": 97.5, "damage": 0}, {"deg": 98, "damage": 0}, {"deg": 98.5, "damage": 0}, {"deg": 99, "damage": 0}, {"deg": 99.5, "damage": 0}, {"deg": 100, "damage": 0}, {"deg": 100.5, "damage": 0}, {"deg": 101, "damage": 0}, {"deg": 101.5, "damage": 0}, {"deg": 102, "damage": 0}, {"deg": 102.5, "damage": 0}, {"deg": 103, "damage": 0}, {"deg": 103.5, "damage": 0}, {"deg": 104, "damage": 0}, {"deg": 104.5, "damage": 0}, {"deg": 105, "damage": 0}, {"deg": 105.5, "damage": 0}, {"deg": 106, "damage": 0}, {"deg": 106.5, "damage": 0}, {"deg": 107, "damage": 0}, {"deg": 107.5, "damage": 0}, {"deg": 108, "damage": 0}, {"deg": 108.5, "damage": 0}, {"deg": 109, "damage": 0}, {"deg": 109.5, "damage": 0}, {"deg": 110, "damage": 0}, {"deg": 110.5, "damage": 0}, {"deg": 111, "damage": 0}, {"deg": 111.5, "damage": 0}, {"deg": 112, "damage": 0}, {"deg": 112.5, "damage": 0}, {"deg": 113, "damage": 0}, {"deg": 113.5, "damage": 0}, {"deg": 114, "damage": 0}, {"deg": 114.5, "damage": 0}, {"deg": 115, "damage": 0}, {"deg": 115.5, "damage": 0}, {"deg": 116, "damage": 0}, {"deg": 116.5, "damage": 0}, {"deg": 117, "damage": 0}, {"deg": 117.5, "damage": 0}, {"deg": 118, "damage": 0}, {"deg": 118.5, "damage": 0}, {"deg": 119, "damage": 0}, {"deg": 119.5, "damage": 0}, {"deg": 120, "damage": 0}, {"deg": 120.5, "damage": 0}, {"deg": 121, "damage": 0}, {"deg": 121.5, "damage": 0}, {"deg": 122, "damage": 0}, {"deg": 122.5, "damage": 0}, {"deg": 123, "damage": 0}, {"deg": 123.5, "damage": 0}, {"deg": 124, "damage": 0}, {"deg": 124.5, "damage": 0}, {"deg": 125, "damage": 0}, {"deg": 125.5, "damage": 0}, {"deg": 126, "damage": 0}, {"deg": 126.5, "damage": 0}, {"deg": 127, "damage": 0}, {"deg": 127.5, "damage": 0}, {"deg": 128, "damage": 0}, {"deg": 128.5, "damage": 0}, {"deg": 129, "damage": 0}, {"deg": 129.5, "damage": 0}, {"deg": 130, "damage": 0}, {"deg": 130.5, "damage": 0}, {"deg": 131, "damage": 0}, {"deg": 131.5, "damage": 0}, {"deg": 132, "damage": 0}, {"deg": 132.5, "damage": 0}, {"deg": 133, "damage": 0}, {"deg": 133.5, "damage": 0}, {"deg": 134, "damage": 0}, {"deg": 134.5, "damage": 0}, {"deg": 135, "damage": 0}, {"deg": 135.5, "damage": 0}, {"deg": 136, "damage": 0}, {"deg": 136.5, "damage": 0}, {"deg": 137, "damage": 0}, {"deg": 137.5, "damage": 0}, {"deg": 138, "damage": 0}, {"deg": 138.5, "damage": 0}, {"deg": 139, "damage": 0}, {"deg": 139.5, "damage": 0}, {"deg": 140, "damage": 0}, {"deg": 140.5, "damage": 0}, {"deg": 141, "damage": 0}, {"deg": 141.5, "damage": 0}, {"deg": 142, "damage": 0}, {"deg": 142.5, "damage": 0}, {"deg": 143, "damage": 0}, {"deg": 143.5, "damage": 0}, {"deg": 144, "damage": 0}, {"deg": 144.5, "damage": 0}, {"deg": 145, "damage": 0}, {"deg": 145.5, "damage": 0}, {"deg": 146, "damage": 0}, {"deg": 146.5, "damage": 0}, {"deg": 147, "damage": 0}, {"deg": 147.5, "damage": 0}, {"deg": 148, "damage": 0}, {"deg": 148.5, "damage": 0}, {"deg": 149, "damage": 0}, {"deg": 149.5, "damage": 0}, {"deg": 150, "damage": 0}, {"deg": 150.5, "damage": 0}, {"deg": 151, "damage": 0}, {"deg": 151.5, "damage": 0}, {"deg": 152, "damage": 0}, {"deg": 152.5, "damage": 0}, {"deg": 153, "damage": 0}, {"deg": 153.5, "damage": 0}, {"deg": 154, "damage": 0}, {"deg": 154.5, "damage": 0}, {"deg": 155, "damage": 0}, {"deg": 155.5, "damage": 0}, {"deg": 156, "damage": 0}, {"deg": 156.5, "damage": 0}, {"deg": 157, "damage": 0}, {"deg": 157.5, "damage": 0}, {"deg": 158, "damage": 0}, {"deg": 158.5, "damage": 0}, {"deg": 159, "damage": 0}, {"deg": 159.5, "damage": 0}, {"deg": 160, "damage": 0}, {"deg": 160.5, "damage": 0}, {"deg": 161, "damage": 0}, {"deg": 161.5, "damage": 0}, {"deg": 162, "damage": 0}, {"deg": 162.5, "damage": 0}, {"deg": 163, "damage": 0}, {"deg": 163.5, "damage": 0}, {"deg": 164, "damage": 0}, {"deg": 164.5, "damage": 0}, {"deg": 165, "damage": 0}, {"deg": 165.5, "damage": 0}, {"deg": 166, "damage": 0}, {"deg": 166.5, "damage": 4}, {"deg": 167, "damage": 0}, {"deg": 167.5, "damage": 0}, {"deg": 168, "damage": 0}, {"deg": 168.5, "damage": 0}, {"deg": 169, "damage": 0}, {"deg": 169.5, "damage": 0}, {"deg": 170, "damage": 0}, {"deg": 170.5, "damage": 0}, {"deg": 171, "damage": 0}, {"deg": 171.5, "damage": 4}, {"deg": 172, "damage": 0}, {"deg": 172.5, "damage": 0}, {"deg": 173, "damage": 0}, {"deg": 173.5, "damage": 0}, {"deg": 174, "damage": 0}, {"deg": 174.5, "damage": 0}, {"deg": 175, "damage": 0}, {"deg": 175.5, "damage": 0}, {"deg": 176, "damage": 4}, {"deg": 176.5, "damage": 0}, {"deg": 177, "damage": 0}, {"deg": 177.5, "damage": 0}, {"deg": 178, "damage": 0}, {"deg": 178.5, "damage": 0}, {"deg": 179, "damage": 0}, {"deg": 179.5, "damage": 0}, {"deg": 180, "damage": 0}];
+  var SEARCH = {"trace": [{"round": 0, "angles": [16, 175], "damages": [0, 0]}, {"round": 1, "angles": [16, 55.75], "damages": [0, 4]}, {"round": 2, "angles": [35.875, 75.625], "damages": [0, 3]}, {"round": 3, "angles": [45.8125, 65.6875], "damages": [5, 0]}, {"round": 4, "angles": [40.84375, 50.78125], "damages": [4, 6]}, {"round": 5, "angles": [48.296875, 53.265625], "damages": [4, 5]}, {"round": 6, "angles": [49.5390625, 52.0234375], "damages": [5, 3]}], "bestAngle": 50.78125, "bestDamage": 6};
+  var TOTAL = 15, TRUE_BEST = { deg: 27, damage: 8 };
+
+  var tbody = document.querySelector("#trace-table tbody");
+  SEARCH.trace.forEach(function (t) {
+    var tr = document.createElement("tr");
+    [t.round, t.angles[0].toFixed(2) + "°", t.damages[0], t.angles[1].toFixed(2) + "°", t.damages[1]].forEach(function (v) {
+      var td = document.createElement("td"); td.textContent = v; tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  var NS = "http://www.w3.org/2000/svg";
+  function el(name, attrs, text) {
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  var mount = document.getElementById("chart-mount");
+  var tooltip = document.createElement("div"); tooltip.id = "tooltip"; mount.appendChild(tooltip);
+
+  function render() {
+    var W = Math.max(280, mount.clientWidth), H = 360;
+    var padL = 34, padR = 14, padT = 16, padB = 34;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+    var xMin = 10, xMax = 180, yMin = 0, yMax = TOTAL;
+    var X = function (deg) { return padL + ((deg - xMin) / (xMax - xMin)) * plotW; };
+    var Y = function (dmg) { return padT + plotH - (dmg / (yMax - yMin)) * plotH; };
+
+    var svg = el("svg", { class: "chart", viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Damage dealt at every angle from 10 to 180 degrees on today's puzzle board, compared with the angles a two-shot bisection search actually tried." });
+
+    [0, 5, 10, 15].forEach(function (v) {
+      var y = Y(v);
+      svg.appendChild(el("line", { x1: padL, x2: W - padR, y1: y, y2: y, stroke: "var(--line)", "stroke-width": "1" }));
+      svg.appendChild(el("text", { x: padL - 8, y: y + 3, "text-anchor": "end", "font-size": "10.5", fill: "var(--muted)" }, v));
+    });
+    [10, 50, 90, 130, 180].forEach(function (v) {
+      svg.appendChild(el("text", { x: X(v), y: H - padB + 18, "text-anchor": "middle", "font-size": "10.5", fill: "var(--muted)" }, v + "°"));
+    });
+
+    var d = "M" + SWEEP.map(function (p) { return X(p.deg) + "," + Y(p.damage); }).join(" L");
+    svg.appendChild(el("path", { d: d, fill: "none", stroke: "var(--accent)", "stroke-width": "2", "stroke-linejoin": "round" }));
+
+    var tbx = X(TRUE_BEST.deg), tby = Y(TRUE_BEST.damage);
+    svg.appendChild(el("circle", { cx: tbx, cy: tby, r: "5", fill: "var(--ok)", stroke: "var(--bg)", "stroke-width": "2" }));
+    svg.appendChild(el("text", { x: tbx + 9, y: tby - 7, "font-size": "11", fill: "var(--ok)", "font-weight": "600" }, "true best, 27°"));
+
+    var pts = [];
+    SEARCH.trace.forEach(function (t) { pts.push([t.angles[0], t.damages[0]]); pts.push([t.angles[1], t.damages[1]]); });
+    var sd = "M" + pts.map(function (p) { return X(p[0]) + "," + Y(p[1]); }).join(" L");
+    svg.appendChild(el("path", { d: sd, fill: "none", stroke: "var(--accent2)", "stroke-width": "1.6", "stroke-dasharray": "4 3", opacity: "0.85" }));
+    pts.forEach(function (p, i) {
+      var g = el("g", { tabindex: "0", style: "cursor:pointer" });
+      var cx = X(p[0]), cy = Y(p[1]);
+      g.appendChild(el("circle", { cx: cx, cy: cy, r: "11", fill: "transparent" }));
+      g.appendChild(el("circle", { cx: cx, cy: cy, r: "4.5", fill: "var(--accent2)", stroke: "var(--bg)", "stroke-width": "2" }));
+      var round = Math.floor(i / 2);
+      function show() {
+        tooltip.innerHTML = "";
+        var l1 = document.createElement("div"); l1.innerHTML = '<span class="k">Round ' + round + ', shot ' + (i % 2 === 0 ? "A" : "B") + '</span>';
+        var l2 = document.createElement("div"); l2.innerHTML = '<b>' + p[0].toFixed(2) + '°</b> <span class="k">→</span> <b>' + p[1] + '</b> <span class="k">of ' + TOTAL + '</span>';
+        tooltip.appendChild(l1); tooltip.appendChild(l2);
+        tooltip.style.left = Math.min(cx + 14, W - 150) + "px"; tooltip.style.top = Math.max(cy - 44, 0) + "px"; tooltip.style.opacity = "1";
+      }
+      g.addEventListener("pointerenter", show); g.addEventListener("focus", show);
+      g.addEventListener("pointerleave", function () { tooltip.style.opacity = "0"; });
+      g.addEventListener("blur", function () { tooltip.style.opacity = "0"; });
+      svg.appendChild(g);
+    });
+
+    var hit = el("rect", { x: padL, y: padT, width: plotW, height: plotH, fill: "transparent" });
+    var cross = el("line", { y1: padT, y2: padT + plotH, stroke: "var(--muted)", "stroke-width": "1", opacity: "0" });
+    svg.appendChild(cross);
+    hit.addEventListener("pointermove", function (ev) {
+      var rect = svg.getBoundingClientRect();
+      var px = ((ev.clientX - rect.left) / rect.width) * W;
+      var deg = xMin + ((px - padL) / plotW) * (xMax - xMin);
+      var nearest = SWEEP[0], bd = Infinity;
+      for (var i = 0; i < SWEEP.length; i++) { var dist = Math.abs(SWEEP[i].deg - deg); if (dist < bd) { bd = dist; nearest = SWEEP[i]; } }
+      cross.setAttribute("x1", X(nearest.deg)); cross.setAttribute("x2", X(nearest.deg)); cross.setAttribute("opacity", "1");
+      tooltip.innerHTML = "";
+      var l1 = document.createElement("div"); l1.innerHTML = '<span class="k">Full sweep</span>';
+      var l2 = document.createElement("div"); l2.innerHTML = '<b>' + nearest.deg.toFixed(1) + '°</b> <span class="k">→</span> <b>' + nearest.damage + '</b> <span class="k">of ' + TOTAL + '</span>';
+      tooltip.appendChild(l1); tooltip.appendChild(l2);
+      tooltip.style.left = Math.min(X(nearest.deg) + 14, W - 150) + "px"; tooltip.style.top = Math.max(Y(nearest.damage) - 44, 0) + "px"; tooltip.style.opacity = "1";
+    });
+    hit.addEventListener("pointerleave", function () { cross.setAttribute("opacity", "0"); tooltip.style.opacity = "0"; });
+    svg.appendChild(hit);
+
+    mount.innerHTML = ""; mount.appendChild(svg); mount.appendChild(tooltip);
+  }
+
+  render();
+  var t;
+  window.addEventListener("resize", function () { clearTimeout(t); t = setTimeout(render, 150); });
+})();
+</script>
+</body></html>
