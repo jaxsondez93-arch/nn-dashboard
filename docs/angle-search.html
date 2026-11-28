@@ -4,8 +4,31 @@
 </head>
 <body><header class="top"><a class="brand" href="../index.html">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="../playground/">Playground</a><a href="../play/">Watch the bot play</a><a href="../play/puzzle.html">Build a puzzle</a><a href="../yourself/">Play it yourself</a><a href="../contribute/">Lend your processor</a><a href="PLAIN_ENGLISH.html">In plain English</a><a href="README.html">Docs</a><a href="https://github.com/jaxsondez93-arch/nn-dashboard">GitHub</a></nav></header>
 <main><article>
-<h1>Does splitting the angle in half find the best shot? (retracted)</h1>
-<blockquote><strong>This page's chart and numbers are withdrawn.</strong> They were built by reconstructing a tap pixel from an angle and a radius, on the assumption that only the direction from the launch point matters to the physics. Checking that assumption afterward: the same nominal angle, at different radii, reported wildly different damage (9, 14, 16, 17, 11, 15, 20, 9, 13 of 15, all for the identical angle on the identical board) &mdash; the game's shot physics is sensitive to the exact launch angle at a precision far finer than degrees, and reconstructing a pixel this way doesn't reliably reproduce a given angle. The real conclusion that stands: a two-shot bisection search misses the best aim on most boards, because this project only ever tests real pixels from <code>pixels781.json</code>, never angle reconstructions, so that number is unaffected. Everything about <em>why</em> it misses, and any angle-indexed chart, is not trustworthy and has been taken down pending a corrected method.</blockquote>
+<h1>Does splitting the angle in half find the best shot?</h1>
+<blockquote><strong>An earlier version of this page is retracted.</strong> It reconstructed a tap position from an angle and a radius, on the assumption that only direction matters to the physics. That assumption was wrong: the same nominal angle, at different radii, reported wildly different damage on the same board &mdash; the shot physics is sensitive to launch angle far more finely than degrees, and reconstructing a tap this way doesn't reliably reproduce one. The chart and the "27&deg; vs 50.8&deg;" numbers from that version are gone, along with the claim that the bisection shots came from real stored pixels &mdash; they didn't; they went through the same broken reconstruction.</blockquote>
+<p>Redone below using only real, already-computed tap positions from the project's own <code>pixels781.json</code> &mdash; no angle is ever reconstructed, so every shot here is one the real game would actually receive, and results are fully deterministic (repeating a shot gives the same damage every time; checked directly).</p>
+<div class="verdict">
+  <div class="vcard true"><span>Boards tested</span><b>10</b></div>
+  <div class="vcard search"><span>Bisection matched the full 781-grid's best</span><b>0 of 10</b></div>
+  <div class="vcard"><span>Shots used per board</span><b>16, vs. 781</b></div>
+</div>
+<p>Method: sort the 781 real pixels by their angle from the launch point. Shoot the first and last; keep whichever did more damage; shoot two more straddling it, at a shrinking distance; repeat seven rounds (16 real shots total). Compare that search's best damage against the true best from trying all 781.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Board (turn)</th><th>Best of all 781</th><th>Bisection's best (16 shots)</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>6</td><td>4</td></tr>
+    <tr><td>2</td><td>4</td><td>3</td></tr>
+    <tr><td>9</td><td>3</td><td>1</td></tr>
+    <tr><td>12</td><td>5</td><td>1</td></tr>
+    <tr><td>14</td><td>9</td><td>2</td></tr>
+    <tr><td>15</td><td>8</td><td>7</td></tr>
+    <tr><td>16</td><td>15</td><td>10</td></tr>
+    <tr><td>18</td><td>16</td><td>14</td></tr>
+    <tr><td>19</td><td>6</td><td>0</td></tr>
+    <tr><td>26</td><td>10</td><td>3</td></tr>
+  </tbody>
+</table></div>
+<p class="note">This only says bisection misses the best of the 781 real aims the project already tracks &mdash; not the true continuous optimum over every possible tap, which nothing here claims to know.</p>
 <p><a href="README.html">Back to the docs</a>.</p>
 </article></main>
 <footer>Made by <a href="https://github.com/jaxsondez93-arch">jaxsondez93</a> · <a href="../index.html">home</a> · <a href="../playground/">playground</a></footer>
