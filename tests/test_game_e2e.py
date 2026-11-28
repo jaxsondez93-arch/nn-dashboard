@@ -14,6 +14,10 @@ READY = bool(sync_playwright and GAME and ENGINE and os.path.isfile(os.path.join
 
 GLOBALS = '''() => { const o = {}; for (const v of document.getElementById("game").contentWindow.cr_getC2Runtime().all_global_vars) o[v.name] = v.data; return o; }'''
 CLOCK = '''() => { const c = document.getElementById("game").contentWindow.NNClock; return { frames: c.frames, cuts: c.cuts }; }'''
+# True once the iframe has finished loading the game AFTER a src change: a running layout, the touch-input canvas driver.js's
+# fire() needs, and clock.js's own override of requestAnimationFrame in place. Checking running_layout alone raced once under
+# a loaded test run: it can turn true a moment before the canvas element itself exists.
+READY = '''() => { try { const w = document.getElementById("game").contentWindow; return !!(w.cr_getC2Runtime().running_layout && w.document.getElementById("c2canvas") && w.NNClock); } catch (e) { return false; } }'''
 BUILD_FIRE = '''async ([scene, pixel]) => {
   const g = () => { const o = {}; for (const v of document.getElementById("game").contentWindow.cr_getC2Runtime().all_global_vars) o[v.name] = v.data; return o; };
   const c = () => document.getElementById("game").contentWindow.NNClock;
@@ -45,6 +49,17 @@ class RealGame(unittest.TestCase):
 
     def run_shot(self, scene, pixel=(240, 200)): return self.page.evaluate(BUILD_FIRE, [scene, list(pixel)])
 
+    def with_fastend(self, scene, pixel):
+        """Run one shot with the experimental early-turn-end shortcut turned on (off by default: see clock.js). Reloads the
+        game iframe with ?fastend=1 for this one shot, then reloads it back to the default so later tests are unaffected."""
+        try:
+            self.page.evaluate('() => { document.getElementById("game").src = "game/index.html?bot=1&fastend=1"; }')
+            self.page.wait_for_function(READY, timeout=60000)
+            return self.run_shot(scene, pixel)
+        finally:
+            self.page.evaluate('() => { document.getElementById("game").src = "game/index.html?bot=1"; }')
+            self.page.wait_for_function(READY, timeout=60000)
+
     def test_a_built_board_reads_back_exactly_and_the_score_is_drawn_on_the_game_screen(self):
         scene = {"score": 10, "balls": 7, "counter": 2, "blocks": [[1, 150, 800, 6], [2, 570, 800, 9]], "pickups": [[360, 500]]}
         r = self.page.evaluate('''async (scene) => { await NNScene.build(scene); const cap = NNScene.capture(); const shown = document.getElementById("game").contentWindow.cr_getC2Runtime().types_by_index[23].instances[0].text; return { cap, shown, hud: document.getElementById("hud-score").textContent }; }''', scene)
@@ -57,17 +72,29 @@ class RealGame(unittest.TestCase):
         self.assertEqual(r["shot"]["outcome"], "ok"); self.assertEqual((r["shot"]["ballsBefore"], r["shot"]["ballsAfter"], r["shot"]["ballsGained"]), (3, 4, 1))
         self.assertLessEqual(r["vars"]["power"], 1)                                                                                                    # collected: 0, then one turn counted
 
-    def test_when_the_first_ball_clears_the_board_the_turn_ends_at_once_and_the_counters_are_whole(self):
-        full = self.run_shot({"score": 0, "balls": 60, "blocks": [[1, 360, 700, 1]]})
-        self.assertEqual(full["shot"]["outcome"], "ok"); self.assertEqual((full["shot"]["damage"], full["shot"]["destroyed"]), (1, 1)); self.assertEqual(full["cuts"], 1)
-        self.assertLess(full["frames"], 300)                                                                                                           # 60 balls would take about 900 frames to launch
-        self.assertEqual((full["vars"]["TotalBall"], full["vars"]["ballStart"], full["vars"]["ballEnd"], full["vars"]["score"], full["vars"]["Tap"]), (60, 60, 60, 1, 0))
-        again = self.page.evaluate('''async () => { const f0 = document.getElementById("game").contentWindow.NNClock.frames; const shot = await NNScene.fire([300, 220], { speed: 8 }); return { shot, frames: document.getElementById("game").contentWindow.NNClock.frames - f0 }; }''')
-        self.assertEqual(again["shot"]["outcome"], "ok"); self.assertGreater(again["frames"], 600)                                                    # the next turn launches all 60 balls and ends by itself
-        self.assertEqual(self.page.evaluate(GLOBALS)["ballEnd"], 60)
+    def test_the_early_turn_end_shortcut_is_off_unless_asked_for(self):
+        r = self.run_shot({"score": 0, "balls": 60, "blocks": [[1, 360, 700, 1]]})                                                                      # the same case the next test turns the shortcut on for
+        self.assertEqual(r["shot"]["outcome"], "ok"); self.assertEqual(r["cuts"], 0); self.assertGreater(r["frames"], 600)                             # no ?fastend=1: plays out all 60 balls, same as any other shot
 
-    def test_a_board_that_is_not_empty_is_never_cut_short(self):
-        r = self.run_shot({"score": 0, "balls": 40, "blocks": [[1, 360, 700, 1], [2, 150, 900, 400]]})
+    def test_fastend_when_the_first_ball_clears_the_board_the_turn_ends_at_once_and_the_counters_are_whole(self):
+        # Experimental (see clock.js): known to work for this exact shape (one block, the ball that clears it is not the turn's
+        # last ball queued to launch) -- not a general guarantee. ?fastend=1 only; off by default.
+        try:
+            self.page.evaluate('() => { document.getElementById("game").src = "game/index.html?bot=1&fastend=1"; }')
+            self.page.wait_for_function(READY, timeout=60000)
+            full = self.run_shot({"score": 0, "balls": 60, "blocks": [[1, 360, 700, 1]]})
+            self.assertEqual(full["shot"]["outcome"], "ok"); self.assertEqual((full["shot"]["damage"], full["shot"]["destroyed"]), (1, 1)); self.assertEqual(full["cuts"], 1)
+            self.assertLess(full["frames"], 300)                                                                                                       # 60 balls would take about 900 frames to launch
+            self.assertEqual((full["vars"]["TotalBall"], full["vars"]["ballStart"], full["vars"]["ballEnd"], full["vars"]["score"], full["vars"]["Tap"]), (60, 60, 60, 1, 0))
+            again = self.page.evaluate('''async () => { const f0 = document.getElementById("game").contentWindow.NNClock.frames; const shot = await NNScene.fire([300, 220], { speed: 8 }); return { shot, frames: document.getElementById("game").contentWindow.NNClock.frames - f0 }; }''')
+            self.assertEqual(again["shot"]["outcome"], "ok"); self.assertGreater(again["frames"], 600)                                                 # the following turn still launches all 60 balls and ends by itself
+            self.assertEqual(self.page.evaluate(GLOBALS)["ballEnd"], 60)
+        finally:
+            self.page.evaluate('() => { document.getElementById("game").src = "game/index.html?bot=1"; }')
+            self.page.wait_for_function(READY, timeout=60000)
+
+    def test_a_board_that_is_not_empty_is_never_cut_short_even_with_fastend_on(self):
+        r = self.with_fastend({"score": 0, "balls": 40, "blocks": [[1, 360, 700, 1], [2, 150, 900, 400]]}, (240, 200))
         self.assertEqual(r["cuts"], 0); self.assertGreater(r["frames"], 500)                                                                           # a block that survives keeps the shot going to the last ball
 
     def test_above_2_to_the_53_hits_stop_taking_one_off_and_the_score_stops_rising(self):

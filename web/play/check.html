@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self'; worker-src 'self'; manifest-src 'self'; media-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Does this device match? · nn-dashboard</title><link rel="stylesheet" href="../site.css"><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2f6fdb">
+<style>
+.stage { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; align-items:start; } @media (min-width: 900px) { .stage { grid-template-columns: auto 1fr; } }
+.screen { position:relative; width:100%; max-width:480px; margin:0 auto; background:#000; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.screen iframe { position:absolute; left:0; top:0; width:480px; height:853px; border:0; transform-origin:0 0; background:#000; pointer-events:none; }   /* the visitor cannot touch the game: only the bot sends it input */
+.screen .shield { position:absolute; inset:0; z-index:2; touch-action:pan-y; }
+.screen .badge { position:absolute; left:.5rem; top:.5rem; z-index:3; background:rgba(0,0,0,.65); color:#fff; font-size:.75rem; padding:.15rem .55rem; border-radius:999px; pointer-events:none; }
+.pill { display:inline-block; padding:.1rem .6rem; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:.9rem; }
+table.log { width:100%; font-size:.85rem; } table.log td, table.log th { padding:.25rem .4rem; }
+#missing { display:none; } .bar { height:10px; background:var(--accent); border-radius:4px; }
+</style><style>#analysis, #ex, #sys { --s1:#2a78d6; --s2:#eb6834; --neg:#e34948; } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #analysis, :root:not([data-theme="light"]) #ex, :root:not([data-theme="light"]) #sys { --s1:#3987e5; --s2:#d95926; --neg:#e66767; } } :root[data-theme="dark"] #analysis, :root[data-theme="dark"] #ex, :root[data-theme="dark"] #sys { --s1:#3987e5; --s2:#d95926; --neg:#e66767; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.6rem; } .tile { border:1px solid var(--line); border-radius:10px; padding:.6rem .75rem; display:flex; flex-direction:column; } .tile .k { font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); } .tile strong { font-size:1.7rem; } .tile .s { font-size:.8rem; color:var(--muted); }
+.chart { margin:1.1rem 0; } .chart h3 { margin:.2rem 0; } .chart svg { width:100%; height:auto; display:block; } .readline { min-height:1.5em; font-size:.85rem; color:var(--ink); } .legend { display:flex; flex-wrap:wrap; gap:.3rem 1.2rem; font-size:.82rem; color:var(--muted); } .legend i { display:inline-block; width:1.4rem; height:0; vertical-align:middle; margin-right:.35rem; border-top:2px solid; }
+.legend .k-obs { width:.6rem; height:.6rem; border:0; border-radius:50%; background:var(--ink); } .legend .k-l1 { border-color:var(--s1); } .legend .k-l2 { border-color:var(--s2); border-top-style:dashed; }
+.grid { stroke:var(--line); } .tick { fill:var(--muted); font-size:13px; } .l1 { fill:none; stroke:var(--s1); stroke-width:2; } .l2 { fill:none; stroke:var(--s2); stroke-width:2; stroke-dasharray:7 4; } .ref { fill:none; stroke:var(--muted); stroke-width:1.5; stroke-dasharray:3 4; }
+.obs { fill:var(--ink); stroke:var(--card); stroke-width:2; } .whisk { stroke:var(--ink); stroke-width:2; opacity:.55; } .dot { fill:var(--s1); opacity:.6; stroke:var(--card); stroke-width:1; } .meanmark { fill:var(--ink); stroke:var(--card); stroke-width:1.5; } .ghost { fill:transparent; }
+.wide { overflow-x:auto; max-width:100%; } #stage > div { min-width:0; } #showmind { min-width:1.2rem; } .formula { font-family:ui-monospace,monospace; background:var(--code); padding:.45rem .7rem; border-radius:8px; overflow-x:auto; white-space:nowrap; } p.head { font-weight:600; margin-bottom:.3rem; }
+.sysgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:0 1rem; } .chart.mini h3 { font-size:.95rem; margin-bottom:0; } .chart.mini .note { margin:.1rem 0; } .chart.mini .tick { font-size:21px; } .chart.mini .readline { display:none; }
+.band { fill:var(--s2); opacity:.18; } .fitline { fill:none; stroke:var(--s2); stroke-width:2; stroke-dasharray:7 4; } .series { fill:none; stroke:var(--s1); stroke-width:1.5; opacity:.7; } .bar { fill:var(--s1); } .corr .cell { width:100%; min-width:3.2rem; min-height:34px; border:1px solid var(--line); border-radius:6px; color:var(--ink); cursor:pointer; font:inherit; }</style>
+<style>#mind { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:1; background:transparent; border:0; border-radius:0; }   /* see-through: the game is underneath */</style>
+<style>.hud { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; margin:.8rem 0; } .hud .stat, .hud .danger, .hud .records { background:linear-gradient(160deg,#0d1622,#16263c); color:#dbe7f5; border:1px solid rgba(88,214,255,.35); border-radius:12px; padding:.55rem .75rem; box-shadow:0 0 18px rgba(88,214,255,.12) inset; }
+.hud span { display:block; font:600 .7rem ui-monospace,monospace; letter-spacing:.14em; text-transform:uppercase; color:#8fe6ff; } .hud strong { display:inline-block; font:700 clamp(1.25rem,6.4vw,2rem) ui-monospace,monospace; text-shadow:0 0 12px rgba(88,214,255,.55); } .hud strong.bump { animation:bump .45s ease; } @keyframes bump { 40% { transform:scale(1.12); color:#9fffc4; } }
+.hud .danger, .hud .records { grid-column:1 / -1; } .hud .bars { display:grid; grid-template-columns:repeat(10,1fr); gap:4px; margin:.35rem 0; } .hud .bars i { height:.7rem; border-radius:4px; background:#25364f; }
+/* One tab per real layer, 1 shot away up to the farthest possible (10). The nearer the danger, the more tabs light up (level 1 = every tab, red, alarming); the farther out, the fewer light up
+   and the cooler the colour — but even the farthest tracked layer (level 10) still lights one tab. It is never just "safe": there is always a nearest block, however many shots off. */
+.danger[data-level="1"] .bars i { background:#ff4646; animation:alarm .6s infinite alternate; } @keyframes alarm { to { opacity:.35; } } .danger[data-level="1"] b { color:#ff8a8a; }
+.danger[data-level="2"] .bars i:nth-child(-n+9) { background:#ff6b46; }
+.danger[data-level="3"] .bars i:nth-child(-n+8) { background:#ff9632; }
+.danger[data-level="4"] .bars i:nth-child(-n+7) { background:#ffb94a; }
+.danger[data-level="5"] .bars i:nth-child(-n+6) { background:#ffd750; }
+.danger[data-level="6"] .bars i:nth-child(-n+5) { background:#c9e05e; }
+.danger[data-level="7"] .bars i:nth-child(-n+4) { background:#8fd97a; }
+.danger[data-level="8"] .bars i:nth-child(-n+3) { background:#5fcf8f; }
+.danger[data-level="9"] .bars i:nth-child(-n+2) { background:#4cc3a3; }
+.danger[data-level="10"] .bars i:nth-child(-n+1) { background:#4c8fc3; }
+.hud .records { font-size:.85rem; } .toast { position:fixed; left:50%; top:1rem; z-index:60; transform:translate(-50%,-180%); background:#0d1622; color:#9fffc4; border:1px solid #4cc38a; border-radius:999px; padding:.6rem 1.2rem; font:700 1rem ui-monospace,monospace; box-shadow:0 0 24px rgba(76,195,138,.5); transition:transform .45s cubic-bezier(.2,1.4,.4,1); pointer-events:none; white-space:nowrap; visibility:hidden; } .toast.show { transform:translate(-50%,0); visibility:visible; }
+@media (min-width:900px) { .hud { grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,2fr) minmax(0,2.4fr); } .hud .danger, .hud .records { grid-column:auto; } }
+@media (prefers-reduced-motion: reduce) { .hud strong.bump, .danger[data-level="1"] .bars i { animation:none; } .toast { transition:none; } }</style>
+<link rel="stylesheet" href="ui.css">
+<link rel="stylesheet" href="pz.css">
+</head>
+<body class="pz has-bar">
+<header class="top"><a class="brand" href="../">nn-dashboard</a><nav><a href="../demo/">Live demo</a><a href="./">Watch the bot play</a><a href="puzzle.html">Build a puzzle</a><a href="puzzle-dev.html">Puzzle editor</a><a href="../yourself/">Play it yourself</a><a href="../docs/PLAIN_ENGLISH.html">In plain English</a></nav></header>
+<main>
+<h1>Does this device match?</h1>
+<p class="note">A fixed list of boards and aims, played in the real game on whatever device opens this page, compared against what they did on the browser that recorded them. If every row matches, a shot's result does not depend on the device or its JavaScript engine, which is what scoring a daily puzzle without a server would need. <a href="../docs/GAME_RULES.html">How the game works</a></p>
+<section class="lab" id="missing" hidden><h2>The game files are not on this copy of the site</h2><p>This page needs the game in <code>play/game/</code>.</p></section>
+<p class="note" id="ck-device"></p>
+<p class="note" id="ck-meta">Loading the list of shots...</p>
+<section class="lab">
+  <div class="row"><label>Speed<select id="ck-speed"><option value="1">normal</option><option value="4" selected>4×</option><option value="8">8×</option></select></label></div>
+  <div class="go"><button class="primary" id="ck-run" disabled>Run the checks</button><button id="ck-quick" disabled>Quick check (5)</button><button id="ck-copy" disabled>Copy the results</button></div>
+  <p class="readout" id="ck-summary">Nothing run yet.</p>
+</section>
+<div class="stage" id="stage"><div class="screen" id="screen"><iframe id="game" src="game/index.html?bot=1" title="Falling Ballz (playing the fixed list of test shots)" allow="autoplay" tabindex="-1" inert></iframe><div class="shield" aria-hidden="true"></div></div></div>
+<div class="wide"><table class="log" id="ck-table"><thead><tr><th>case</th><th>board</th><th>expected</th><th>this device</th><th>match</th></tr></thead><tbody></tbody></table></div>
+<textarea id="ck-out" rows="10" spellcheck="false" aria-label="The results, as JSON" hidden></textarea>
+<p class="note">The game "FALLING BALLZ" is shown here at the site owner's request and is not part of the nn-dashboard source or its licence. See <a href="../docs/PLAY.html">the notice</a>.</p>
+</main>
+<div id="scene-bar" hidden><div id="scene-status" role="status" aria-live="polite"></div><button id="scene-bar-close" type="button" aria-label="Dismiss this message">&#10005;</button></div>
+<script src="scene.js"></script><script src="check.js"></script><script src="../register-sw.js"></script>
+</body></html>

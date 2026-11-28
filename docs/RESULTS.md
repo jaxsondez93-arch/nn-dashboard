@@ -1,5 +1,13 @@
 # Results (simulator-measured regret, lower is better)
 
+## Current: the neural network (nn-train-v3)
+
+The project has since moved from the ridge-regression model below to a trained neural network. As of 27 Nov 2026: training reached its planned step budget (1.6M steps) on 24 Nov, and every run since has correctly exited at once rather than train further. Its best result by the held-out check is **dev_regret 0.744**, reached at step 2,033 of that run; nothing in the remaining 1.6 million steps beat it.
+
+That plateau is a data limit, not a modelling one: the model has only seen 896 boards (87,468 labelled aim-damage rows). A label-generation job (four Raspberry Pi 3Bs plus this laptop, all running the same real shot simulator used everywhere else on this site) is computing about 645,000 more rows from a larger, separate set of boards; once that finishes the model will be retrained on the combined data, with dev_regret 0.744 as the number to beat. The ridge-regression comparison below predates the neural network and is kept as the earlier baseline it was measured against.
+
+## Earlier work: ridge regression against simpler baselines
+
 Regret = best hp over all 781 candidate aims minus the best hp among the aims a method simulated. "Dev" = 16 held-out games, 80 boards, all 781 aims labelled; settings were frozen on the 4 validation games before dev was scored. Mean best hp per dev board: 11.95.
 
 ![Regret against simulation budget](images/results_regret_vs_budget.png)
